@@ -1,0 +1,12 @@
+_process_config_.json
+corrupt_enc.exe
+encode.py
+process.py
+squish
+squish.lua
+squished.lua
+DreamApi/*
+LeagueSDK/*
+Common/*
+__pycache__/*
+map.txt

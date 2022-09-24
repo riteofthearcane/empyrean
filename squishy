@@ -1,0 +1,39 @@
+local PLATFORM = os.getenv("_SDK_PLATFORM_")
+
+local function LoadSDKModules(platform)
+    Module ("LeagueSDK.Api." .. platform .. ".Menu") ("LeagueSDK/Api/" .. platform .. "/Menu.lua")
+    Module ("LeagueSDK.Api." .. platform .. ".SDK") ("LeagueSDK/Api/" .. platform .. "/SDK.lua")
+    Module ("LeagueSDK.Api." .. platform .. ".Color") ("LeagueSDK/Api/" .. platform .. "/Color.lua")
+end
+
+local function LoadAuth(platform)
+    -- local is_authed_loaded = platform == "Corrupt"
+
+    -- if is_authed_loaded then
+    --     Module "CXAIO.Auth.Common.auth_utils" "Auth/Common/auth_utils.lua"
+    --     Module "CXAIO.Auth.Common.json" "Auth/Common/json.lua"
+    --     Module "CXAIO.Auth.Common.sha2" "Auth/Common/sha2.lua"
+    -- end
+
+    -- Module ("CXAIO.Auth." .. platform .. ".Auth") ("Auth/" .. platform .. "/Auth.lua")
+end
+
+-- Set this option, same as if user specified
+-- '--executable' on the command-line. Can be 
+-- disabled by user with '--no-executable'
+Option "executable"
+
+-- Output filename
+Output "squish"
+
+-- This is normal/main script
+Main "Empyrean/main.lua"
+
+Module "Common.TargetSelector" "Common/TargetSelector.lua"
+
+Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"
+Module "LeagueSDK.Resolver" "LeagueSDK/Resolver.lua"
+Module "LeagueSDK.Api.Common.Vector" "LeagueSDK/Api/Common/Vector.lua"
+LoadSDKModules(PLATFORM)
+
+LoadAuth(PLATFORM)
