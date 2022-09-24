@@ -1,9 +1,9 @@
 local PLATFORM = os.getenv("_SDK_PLATFORM_")
 
 local function LoadSDKModules(platform)
-    Module ("LeagueSDK.Api." .. platform .. ".Menu") ("LeagueSDK/Api/" .. platform .. "/Menu.lua")
-    Module ("LeagueSDK.Api." .. platform .. ".SDK") ("LeagueSDK/Api/" .. platform .. "/SDK.lua")
-    Module ("LeagueSDK.Api." .. platform .. ".Color") ("LeagueSDK/Api/" .. platform .. "/Color.lua")
+    Module("LeagueSDK.Api." .. platform .. ".Menu")("LeagueSDK/Api/" .. platform .. "/Menu.lua")
+    Module("LeagueSDK.Api." .. platform .. ".SDK")("LeagueSDK/Api/" .. platform .. "/SDK.lua")
+    Module("LeagueSDK.Api." .. platform .. ".Color")("LeagueSDK/Api/" .. platform .. "/Color.lua")
 end
 
 local function LoadAuth(platform)
@@ -19,7 +19,7 @@ local function LoadAuth(platform)
 end
 
 -- Set this option, same as if user specified
--- '--executable' on the command-line. Can be 
+-- '--executable' on the command-line. Can be
 -- disabled by user with '--no-executable'
 Option "executable"
 
@@ -29,11 +29,16 @@ Output "squish"
 -- This is normal/main script
 Main "Empyrean/main.lua"
 
-Module "Common.TargetSelector" "Common/TargetSelector.lua"
+Module "Ahri.Main" "Empyrean/Ahri/main.lua"
+
+Module "Common.Utils" "Empyrean/Common/utils.lua"
+Module "Common.SpellQueueManager" "Empyrean/Common/SpellQueueManager.lua"
+Module "Common.NearestEnemyManager" "Empyrean/Common/NearestEnemyManager.lua"
+
 
 Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"
 Module "LeagueSDK.Resolver" "LeagueSDK/Resolver.lua"
 Module "LeagueSDK.Api.Common.Vector" "LeagueSDK/Api/Common/Vector.lua"
 LoadSDKModules(PLATFORM)
 
-LoadAuth(PLATFORM)
+-- LoadAuth(PLATFORM)
