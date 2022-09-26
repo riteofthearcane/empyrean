@@ -3,7 +3,6 @@ local SDK = require("LeagueSDK.LeagueSDK")
 ---@type SDK_AIHeroClient
 local myHero = SDK.Player
 
-local enemies = SDK.ObjectManager:GetEnemyHeroes()
 
 local Utils = {}
 
@@ -38,6 +37,13 @@ end
 
 function Utils.IsMyHeroDashing()
     return myHero:AsAI():GetPathing():IsDashing()
+end
+
+---@param unit SDK_AIHeroClient
+---@return boolean
+function Utils.IsValidTarget(unit)
+    return unit and unit:IsValid() and unit:IsVisible() and
+        (unit:IsAttackableUnit() and not unit:AsAttackableUnit():IsDead())
 end
 
 return Utils

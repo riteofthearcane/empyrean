@@ -10,7 +10,10 @@ local DreamTS = DreamTSLib.TargetSelectorSdk
 local Vector = SDK.Libs.Vector
 local Utils = require("Common.Utils")
 local SpellQueueManager = require("Common.SpellQueueManager")
-local NearestEnemyManager = require("Common.NearestEnemyManager")
+local NearestEnemyTracker = require("Common.NearestEnemyTracker")
+local CharmedTracker = require("Ahri.CharmedTracker")
+local LastAutoTracker = require("Ahri.LastAutoTracker")
+local SummonerTracker = require("Common.SummonerTracker")
 
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
 
@@ -70,6 +73,11 @@ function Ahri:InitFields()
         slot = nil
     }
 
+    self.flashQueue = {
+        pos = nil,
+        time = nil
+    }
+
 
     ---@type SpellQueueManager
     self.sqm = SpellQueueManager({
@@ -90,8 +98,14 @@ function Ahri:InitFields()
             delay = self.ef.castDelay
         }
     })
-    ---@type NearestEnemyManager
-    self.nem = NearestEnemyManager()
+    ---@type NearestEnemyTracker
+    self.nem = NearestEnemyTracker()
+    ---@type CharmedTracker
+    self.cm = CharmedTracker()
+    ---@type LastAutoTracker
+    self.lat = LastAutoTracker()
+    ---@type SummonerTracker
+    self.flashTracker = SummonerTracker("SummonerFlash")
 end
 
 function Ahri:InitMenu()
@@ -139,7 +153,6 @@ end
 function Ahri:InitEvents()
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function() self:OnTick() end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnDraw, function() self:OnDraw() end)
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnProcessSpell, function(...) self:OnProcessSpell(...) end)
 end
 
 function Ahri:OnDraw()
@@ -166,15 +179,56 @@ function Ahri:CastQ(unitFunc)
 end
 
 function Ahri:CastW()
+    local charm = self.cm:GetClosestValidTarget()
+    local validCharmedTarget = charm and myHero:GetPosition():Distance(charm:GetPosition()) < self.w.range - 25
 
+    local auto = self.lat:GetLastAutoedEnemy()
+    local validAutoedTarget = auto and Utils.IsValidTarget(auto) and
+        myHero:GetPosition():Distance(auto:GetPosition()) < self.w.range - 25
+
+    if validCharmedTarget or validAutoedTarget then
+        SDK.Input:Cast(SDK.Enums.SpellSlot.W, myHero)
+        return true
+    end
 end
 
 function Ahri:CastE()
-    return
+    local target, pred = self.TS:GetTarget(self.e, nil, nil, function(unit, pred)
+        return self.nem:IsTarget(unit) and pred.rates["slow"]
+    end, self.TS.Modes["Closest To Mouse"])
+    if pred then
+        SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition)
+        pred:Draw()
+        self.sqm:InvokeCastSpell("E")
+        return true
+    end
 end
 
 function Ahri:CastEFlash()
-
+    local target = self.nem:GetClosestEnemyToMouse()
+    if not target then
+        return
+    end
+    local flashDist = 400
+    local dir = (target:GetPosition() - myHero:GetPosition()):Normalized()
+    local flashPos = myHero:GetPosition() + dir * flashDist
+    if SDK.NavMesh:IsWall(flashPos) then
+        return
+    end
+    local target, pred = self.TS:GetTarget(self.e, flashPos, nil, function(unit, pred)
+        if unit:GetNetworkId() ~= target:GetNetworkId() then
+            return
+        end
+        return pred.rates["slow"]
+    end)
+    if pred then
+        SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition)
+        pred:Draw()
+        self.sqm:InvokeCastSpell("E")
+        self.flashQueue.pos = flashPos
+        self.flashQueue.time = SDK.Game:GetTime() + self.e.delay - 0.10
+        return true
+    end
 end
 
 function Ahri:CastAntiGapE()
@@ -203,15 +257,26 @@ function Ahri:CastEfCc()
 
 end
 
-function Ahri:OnProcessSpell(obj, cast)
-    if obj:GetNetworkId() ~= myHero:GetNetworkId() then
-        return
-    end
-    print(cast:GetName())
+function Ahri:OnTick()
+    self:InvokeFlash()
+    self:CastSpells()
 end
 
-function Ahri:OnTick()
-    self:CastSpells()
+function Ahri:InvokeFlash()
+    if not self.flashQueue.time then
+        return
+    end
+    if SDK.Game:GetTime() < self.flashQueue.time then
+        return
+    end
+    local slot = self.flashTracker:GetSlot()
+    local f = slot and myHero:CanUseSpell(slot)
+    if f then
+        SDK.Input:Cast(self.flashTracker:GetSlot(), self.flashQueue.pos)
+
+    end
+    self.flashQueue.pos = nil
+    self.flashQueue.time = nil
 end
 
 function Ahri:CastSpells()
@@ -233,7 +298,9 @@ function Ahri:CastSpells()
         return
     end
 
-    if e and self.menu:Get("e.eFlash") and self:CastEFlash() then
+    local slot = self.flashTracker:GetSlot()
+    local f = slot and myHero:CanUseSpell(slot)
+    if e and f and self.menu:Get("e.eFlash") and self:CastEFlash() then
         return
     end
 
@@ -250,10 +317,8 @@ function Ahri:CastSpells()
             return
         end
     end
-    if not myHero:IsWindingUp() and q and self:CastQ(function(unit)
-        return (self.menu:Get("q.q") and self.nem:IsTarget(unit))
-        -- or
-        --     (unit == self.charmedTarget and isCombo)
+    if q and self:CastQ(function(unit)
+        return (self.menu:Get("q.q") and self.nem:IsTarget(unit)) or (isCombo and self.cm:IsCharmed(unit))
     end) then
         return
     end

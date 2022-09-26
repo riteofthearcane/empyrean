@@ -30,10 +30,15 @@ Output "squish"
 Main "Empyrean/main.lua"
 
 Module "Ahri.Main" "Empyrean/Ahri/main.lua"
+Module "Ahri.CharmedTracker" "Empyrean/Ahri/CharmedTracker.lua"
+Module "Ahri.LastAutoTracker" "Empyrean/Ahri/LastAutoTracker.lua"
+
 
 Module "Common.Utils" "Empyrean/Common/utils.lua"
 Module "Common.SpellQueueManager" "Empyrean/Common/SpellQueueManager.lua"
-Module "Common.NearestEnemyManager" "Empyrean/Common/NearestEnemyManager.lua"
+Module "Common.NearestEnemyTracker" "Empyrean/Common/NearestEnemyTracker.lua"
+Module "Common.SummonerTracker" "Empyrean/Common/SummonerTracker.lua"
+Module "Common.ItemTracker" "Empyrean/Common/ItemTracker.lua"
 
 
 Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"

@@ -48,11 +48,12 @@ function SpellQueueManager:_OnProcessSpell(obj, cast)
     self._invokes[spell] = {
         status = VERIFIED,
         verifyDeadline = 0,
-        expireTime = SDK.Game.GetTime() + delay
+        expireTime = SDK.Game:GetTime() + delay
     }
     -- TODO: check if verification of manual casts becomes an issue
 end
 
+---@return nil
 function SpellQueueManager:_OnTick()
     for spell in pairs(self._invokes) do
         local status = self._invokes[spell].status
@@ -61,13 +62,14 @@ function SpellQueueManager:_OnTick()
         if status == UNVERIFIED and SDK.Game:GetTime() > verifyDeadline then
             print(spell .. " was never casted.")
             self:_SetIdle(spell)
-        elseif status == VERIFIED and SDK.Game.GetTime() > expireTime then
+        elseif status == VERIFIED and SDK.Game:GetTime() > expireTime then
             -- print(spell .. " expired and set idle.")
             self:_SetIdle(spell)
         end
     end
 end
 
+---@return nil
 function SpellQueueManager:_SetIdle(spell)
     self._invokes[spell] = {
         status = IDLE,
@@ -76,10 +78,12 @@ function SpellQueueManager:_SetIdle(spell)
     }
 end
 
+---@return number
 function SpellQueueManager:_GetVerificationDeadline()
     return SDK.Game:GetTime() + SDK.Game:GetLatency() / 1000 + 0.1
 end
 
+---@return nil
 function SpellQueueManager:InvokeCastSpell(spell)
     if not self._invokes[spell] then
         print("Unrecognized spell " .. spell .. " when calling InvokeCastSpell")
@@ -96,6 +100,7 @@ function SpellQueueManager:InvokeCastSpell(spell)
     }
 end
 
+---@return boolean
 function SpellQueueManager:ShouldCastSpell(spell)
     if not self._invokes[spell] then
         print("Unrecognized spell " .. spell .. " when checking ShouldCastSpell")
@@ -104,6 +109,7 @@ function SpellQueueManager:ShouldCastSpell(spell)
     return self._invokes[spell].status == IDLE
 end
 
+---@return boolean
 function SpellQueueManager:ShouldCast()
     for spell in pairs(self._invokes) do
         if self._invokes[spell].status ~= IDLE then

@@ -1,17 +1,17 @@
 -- ---@type SDK_SDK
 local SDK = require("LeagueSDK.LeagueSDK")
 
----@class NearestEnemyManager
-local NearestEnemyManager = require("Common.Utils").Class()
+---@class NearestEnemyTracker
+local NearestEnemyTracker = require("Common.Utils").Class()
 
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
 
-function NearestEnemyManager:_init()
+function NearestEnemyTracker:_init()
     self.target = nil
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function() self:_OnTick() end)
 end
 
-function NearestEnemyManager.GetClosestEnemyToMouse()
+function NearestEnemyTracker.GetClosestEnemyToMouse()
     local mousePos = SDK.Renderer:GetMousePos3D()
     local closestDistSqr = nil
     local closestEnemy = nil
@@ -25,15 +25,19 @@ function NearestEnemyManager.GetClosestEnemyToMouse()
     return closestEnemy
 end
 
-function NearestEnemyManager:_OnTick()
-    self.target = self.GetClosestEnemyToMouse()
+function NearestEnemyTracker:_OnTick()
+    self.target = nil
+    local obj = NearestEnemyTracker.GetClosestEnemyToMouse()
+    if obj then
+        self.target = obj:GetNetworkId()
+    end
 end
 
-function NearestEnemyManager:IsTarget(enemy)
+function NearestEnemyTracker:IsTarget(enemy)
     if not self.target then
         return false
     end
-    return enemy:GetNetworkId() == self.target:GetNetworkId()
+    return enemy:GetNetworkId() == self.target
 end
 
-return NearestEnemyManager
+return NearestEnemyTracker
