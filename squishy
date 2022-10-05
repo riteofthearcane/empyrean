@@ -29,17 +29,21 @@ Output "squish"
 -- This is normal/main script
 Main "Empyrean/main.lua"
 
-Module "Ahri.Main" "Empyrean/Ahri/main.lua"
-Module "Ahri.CharmedTracker" "Empyrean/Ahri/CharmedTracker.lua"
+Module "Ahri.Main" "Empyrean/Ahri/Ahri.lua"
+Module "Ahri.CharmTracker" "Empyrean/Ahri/CharmTracker.lua"
 Module "Ahri.LastAutoTracker" "Empyrean/Ahri/LastAutoTracker.lua"
+
+-- Module "Yone.Main" "Empyrean/Yone/Yone.lua
+
+Module "Xerath.BuffManager" "Empyrean/Xerath/BuffManager.lua"
+Module "Xerath.Main" "Empyrean/Xerath/Xerath.lua"
 
 
 Module "Common.Utils" "Empyrean/Common/utils.lua"
 Module "Common.SpellQueueManager" "Empyrean/Common/SpellQueueManager.lua"
 Module "Common.NearestEnemyTracker" "Empyrean/Common/NearestEnemyTracker.lua"
-Module "Common.SummonerTracker" "Empyrean/Common/SummonerTracker.lua"
-Module "Common.ItemTracker" "Empyrean/Common/ItemTracker.lua"
 
+Module "Common.MinionTracker" "Empyrean/Common/MinionTracker.lua"
 
 Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"
 Module "LeagueSDK.Resolver" "LeagueSDK/Resolver.lua"

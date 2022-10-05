@@ -5,6 +5,7 @@ local SDK = require("LeagueSDK.LeagueSDK")
 local myHero = SDK.Player
 
 local SUPPORTED_CHAMPIONS = {
+    ["Ezreal"] = true,
     ["Xerath"] = true,
     ["Syndra"] = true,
     ["Lucian"] = true,
@@ -18,4 +19,11 @@ if not SUPPORTED_CHAMPIONS[myHero:GetCharacterName()] then
     return
 end
 
-require(myHero:GetCharacterName() .. ".Main")
+require("Common.MinionTracker")
+
+SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function()
+    if not _G.DreamTS or not _G.Prediction then
+        return
+    end
+    require(myHero:GetCharacterName() .. ".Main")
+end)

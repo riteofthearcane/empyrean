@@ -80,7 +80,7 @@ end
 
 ---@return number
 function SpellQueueManager:_GetVerificationDeadline()
-    return SDK.Game:GetTime() + SDK.Game:GetLatency() / 1000 + 0.1
+    return SDK.Game:GetTime() + SDK.Game:GetLatency() / 1000 + 0.03
 end
 
 ---@return nil
@@ -104,7 +104,7 @@ end
 function SpellQueueManager:ShouldCastSpell(spell)
     if not self._invokes[spell] then
         print("Unrecognized spell " .. spell .. " when checking ShouldCastSpell")
-        return
+        return false
     end
     return self._invokes[spell].status == IDLE
 end
