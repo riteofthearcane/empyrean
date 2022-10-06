@@ -4,12 +4,15 @@ local SDK = require("LeagueSDK.LeagueSDK")
 ---@type SDK_AIHeroClient
 local myHero = SDK.Player
 
----@class SpellQueueManager
+---@class Empyrean.Common.SpellQueueManager
 local SpellQueueManager = require("Common.Utils").Class()
 
 local IDLE = 0
 local UNVERIFIED = 1
 local VERIFIED = 2
+
+-- only applied to spells using windup as delay
+local DELAY_BUFFER = 0.05
 
 --- Key: spell (or whatever the developer chooses to call the spell)
 --- Value: {name = spell name in OnProcessSpell, delay = delay of lockout}
@@ -26,13 +29,13 @@ function SpellQueueManager:_InitTables(spellsData)
         self:_SetIdle(spell)
         self._spellLookupTable[spellsData[spell].name] = {
             spell = spell,
-            delay = spellsData[spell].delay
+            delay = spellsData[spell].delay or nil
         }
     end
 end
 
 function SpellQueueManager:_InitEvents()
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function() self:_OnTick() end)
+    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnUpdate, function() self:_OnUpdate() end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnProcessSpell, function(...) self:_OnProcessSpell(...) end)
 end
 
@@ -44,23 +47,24 @@ function SpellQueueManager:_OnProcessSpell(obj, cast)
         return
     end
     local spell = self._spellLookupTable[cast:GetName()].spell
-    local delay = self._spellLookupTable[cast:GetName()].delay
+    local delay = self._spellLookupTable[cast:GetName()].delay ~= nil and self._spellLookupTable[cast:GetName()].delay or
+        cast:GetCastDelay()
     self._invokes[spell] = {
         status = VERIFIED,
         verifyDeadline = 0,
-        expireTime = SDK.Game:GetTime() + delay
+        expireTime = SDK.Game:GetTime() + delay + DELAY_BUFFER
     }
     -- TODO: check if verification of manual casts becomes an issue
 end
 
 ---@return nil
-function SpellQueueManager:_OnTick()
+function SpellQueueManager:_OnUpdate()
     for spell in pairs(self._invokes) do
         local status = self._invokes[spell].status
         local verifyDeadline = self._invokes[spell].verifyDeadline
         local expireTime = self._invokes[spell].expireTime
         if status == UNVERIFIED and SDK.Game:GetTime() > verifyDeadline then
-            print(spell .. " was never casted.")
+            print("SPELLQUEUEMANAGER: " .. spell .. " was never casted.")
             self:_SetIdle(spell)
         elseif status == VERIFIED and SDK.Game:GetTime() > expireTime then
             -- print(spell .. " expired and set idle.")
@@ -86,11 +90,11 @@ end
 ---@return nil
 function SpellQueueManager:InvokeCastSpell(spell)
     if not self._invokes[spell] then
-        print("Unrecognized spell " .. spell .. " when calling InvokeCastSpell")
+        print("SPELLQUEUEMANAGER: " .. "Unrecognized spell " .. spell .. " when calling InvokeCastSpell")
         return
     end
     if not self:ShouldCastSpell(spell) then
-        print(spell .. " needs to be idle when calling InvokeCastSpell")
+        print("SPELLQUEUEMANAGER: " .. spell .. " needs to be idle when calling InvokeCastSpell")
         return
     end
     self._invokes[spell] = {
@@ -103,7 +107,7 @@ end
 ---@return boolean
 function SpellQueueManager:ShouldCastSpell(spell)
     if not self._invokes[spell] then
-        print("Unrecognized spell " .. spell .. " when checking ShouldCastSpell")
+        print("SPELLQUEUEMANAGER: " .. "Unrecognized spell " .. spell .. " when checking ShouldCastSpell")
         return false
     end
     return self._invokes[spell].status == IDLE

@@ -1,14 +1,14 @@
 -- ---@type SDK_SDK
 local SDK = require("LeagueSDK.LeagueSDK")
 
----@class NearestEnemyTracker
+---@class Empyrean.Common.NearestEnemyTracker
 local NearestEnemyTracker = require("Common.Utils").Class()
 
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
 
 function NearestEnemyTracker:_init()
     self.target = nil
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function() self:_OnTick() end)
+    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnUpdate, function() self:_OnUpdate() end)
 end
 
 function NearestEnemyTracker.GetClosestEnemyToMouse()
@@ -25,7 +25,7 @@ function NearestEnemyTracker.GetClosestEnemyToMouse()
     return closestEnemy
 end
 
-function NearestEnemyTracker:_OnTick()
+function NearestEnemyTracker:_OnUpdate()
     self.target = nil
     local obj = NearestEnemyTracker.GetClosestEnemyToMouse()
     if obj then

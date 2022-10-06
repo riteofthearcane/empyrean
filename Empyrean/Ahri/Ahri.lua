@@ -10,6 +10,7 @@ local DreamTS = DreamTSLib.TargetSelectorSdk
 local Utils = require("Common.Utils")
 local SpellQueueManager = require("Common.SpellQueueManager")
 local NearestEnemyTracker = require("Common.NearestEnemyTracker")
+local TapManager = require("Common.TapManager")
 local CharmTracker = require("Ahri.CharmTracker")
 local LastAutoTracker = require("Ahri.LastAutoTracker")
 
@@ -19,9 +20,8 @@ local Ahri = {}
 
 function Ahri:__init()
     self.version = "2.0"
-    self:InitFields()
     self:InitMenu()
-    self:InitTS()
+    self:InitFields()
     self:InitEvents()
     SDK.PrintChat("Ahri - Empyrean loaded.")
 end
@@ -77,31 +77,43 @@ function Ahri:InitFields()
     }
 
 
-    ---@type SpellQueueManager
+    ---@type Empyrean.Common.SpellQueueManager
     self.sqm = SpellQueueManager({
         Q = {
             name = "AhriOrbofDeception",
-            delay = self.q.delay
         },
         W = {
             name = "AhriFoxFire",
-            delay = 0
         },
         E = {
             name = "AhriSeduce",
-            delay = self.e.delay
         },
         Ef = {
             name = "6656Cast",
-            delay = self.ef.castDelay
         }
     })
-    ---@type NearestEnemyTracker
+    ---@type Empyrean.Common.NearestEnemyTracker
     self.nem = NearestEnemyTracker()
     ---@type Empyrean.Ahri.CharmTracker
     self.cm = CharmTracker()
     ---@type Empyrean.Ahri.LastAutoTracker
     self.lat = LastAutoTracker()
+
+    ---@type Empyrean.Common.TapManager
+    self.tm = TapManager(
+        function() return self.menu:Get("e.useTap") and self.menu:Get("e.eTap") end,
+        function() return not self.menu:Get("e.useTap") and self.menu:Get("e.e") end,
+        function() return not self.menu:Get("e.useTap") and self.menu:Get("e.eFlash") end
+    )
+
+
+    self.ts =
+    DreamTS(
+        self.menu:GetChild("dreamTs"),
+        {
+            Damage = DreamTS.Damages.AP
+        }
+    )
 end
 
 function Ahri:InitMenu()
@@ -115,11 +127,11 @@ function Ahri:InitMenu()
     local wMenu = self.menu:AddSubMenu("w", "W: Fox-fire")
     wMenu:AddLabel("Cast W on charmed or last attacked targets in combo")
     local eMenu = self.menu:AddSubMenu("e", "E: Charm")
-    eMenu:AddLabel("Cast E/E flash by hovering mouse over enemy and pressing key")
+    eMenu:AddCheckbox("useTap", "Cast E/E Flash by single or double tapping key", false)
+    eMenu:AddKeybind("eTap", "E Tap Key", string.byte("E"))
+    eMenu:AddLabel("Alternatively use separate keys (disabled if above toggle on)")
     eMenu:AddKeybind("e", "E Key", string.byte("E"))
-    eMenu:AddKeybind("eFlash", "E Flash Key", string.byte("T"))
-    -- eMenu:AddLabel("Alternatively cast E/E flash by single or double tapping key")
-    -- eMenu:AddKeybind("eTap", "E Tap Key", string.byte("E"))
+    eMenu:AddKeybind("eFlash", "E Flash Key", string.byte("E"))
     local efMenu = self.menu:AddSubMenu("ef", "Everfrost")
     efMenu:AddLabel("Cast Everfrost on CCed targets in combo")
     efMenu:AddLabel("Cast Everfrost by hovering mouse over enemy and pressing key")
@@ -132,46 +144,37 @@ function Ahri:InitMenu()
     end
     self.menu:AddLabel("Disable smart cast on Q/E so you can use them regularly with the same key")
     local drawMenu = self.menu:AddSubMenu("draw", "Draw")
-    drawMenu:AddCheckbox("q", "Draw Q range", true)
+    drawMenu:AddCheckbox("e", "Draw E range", true)
     self.menu:Render()
 end
 
-function Ahri:InitTS()
-    self.TS =
-    DreamTS(
-        self.menu:GetChild("dreamTs"),
-        {
-            Damage = DreamTS.Damages.AP
-        }
-    )
-end
-
 function Ahri:InitEvents()
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function() self:OnTick() end)
+    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnUpdate, function() self:OnUpdate() end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnDraw, function() self:OnDraw() end)
 end
 
 function Ahri:OnDraw()
-    if self.menu:Get("draw.q") then
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.q.range, Utils.COLOR_WHITE)
+    if self.menu:Get("draw.e") then
+        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.e.range, Utils.COLOR_WHITE)
     end
 end
 
 function Ahri:CastQ(unitFunc)
-    local target, pred = self.TS:GetTarget(self.q, nil,
+    local target, pred = self.ts:GetTarget(self.q, nil,
         function(unit)
             return unitFunc(unit)
         end,
         function(unit, pred)
             return pred.rates["slow"]
-        end, self.TS.Modes["Closest To Mouse"])
+        end, self.ts.Modes["Closest To Mouse"])
     if not pred then
         return
     end
-    self.sqm:InvokeCastSpell("Q")
-    SDK.Input:Cast(SDK.Enums.SpellSlot.Q, pred.castPosition)
-    pred:Draw()
-    return true
+    if SDK.Input:Cast(SDK.Enums.SpellSlot.Q, pred.castPosition) then
+        self.sqm:InvokeCastSpell("Q")
+        pred:Draw()
+        return true
+    end
 end
 
 function Ahri:CastW()
@@ -182,23 +185,23 @@ function Ahri:CastW()
     local validAutoedTarget = auto and Utils.IsValidTarget(auto) and
         myHero:GetPosition():Distance(auto:GetPosition()) < self.w.range - 25
 
-    if validCharmedTarget or validAutoedTarget then
-        SDK.Input:Cast(SDK.Enums.SpellSlot.W, myHero)
+    if validCharmedTarget or validAutoedTarget and SDK.Input:Cast(SDK.Enums.SpellSlot.W, myHero) then
         return true
     end
 end
 
 function Ahri:CastE()
-    local target, pred = self.TS:GetTarget(self.e, nil, nil, function(unit, pred)
+    local target, pred = self.ts:GetTarget(self.e, nil, nil, function(unit, pred)
         return self.nem:IsTarget(unit) and pred.rates["slow"]
-    end, self.TS.Modes["Closest To Mouse"])
+    end, self.ts.Modes["Closest To Mouse"])
     if not pred then
         return
     end
-    SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition)
-    pred:Draw()
-    self.sqm:InvokeCastSpell("E")
-    return true
+    if SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
+        pred:Draw()
+        self.sqm:InvokeCastSpell("E")
+        return true
+    end
 end
 
 function Ahri:GenerateFlashPositions()
@@ -230,11 +233,10 @@ end
 function Ahri:CastEFlash()
     local posList = self:GenerateFlashPositions()
     for _, pos in pairs(posList) do
-        local target, pred = self.TS:GetTarget(self.e, pos, nil, function(unit, pred)
+        local target, pred = self.ts:GetTarget(self.e, pos, nil, function(unit, pred)
             return self.nem:IsTarget(unit) and pred.rates["slow"]
-        end, self.TS.Modes["Closest To Mouse"])
-        if pred then
-            SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition)
+        end, self.ts.Modes["Closest To Mouse"])
+        if pred and SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
             pred:Draw()
             self.sqm:InvokeCastSpell("E")
             self.flashQueue.pos = pos
@@ -245,17 +247,18 @@ function Ahri:CastEFlash()
 end
 
 function Ahri:CastAntiGapE()
-    local target, pred = self.TS:GetTarget(self.e, nil, nil, function(unit, pred)
+    local target, pred = self.ts:GetTarget(self.e, nil, nil, function(unit, pred)
         local menuName = "antigap." .. unit:GetCharacterName()
         return pred and pred.targetDashing and self.menu:Get(menuName)
     end)
     if not pred then
         return
     end
-    self.sqm:InvokeCastSpell("E")
-    SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition)
-    pred:Draw()
-    return true
+    if SDK.Input:CastFast(SDK.Enums.SpellSlot.E, pred.castPosition) then
+        self.sqm:InvokeCastSpell("E")
+        pred:Draw()
+        return true
+    end
 end
 
 function Ahri:GetEfSlot()
@@ -263,21 +266,22 @@ function Ahri:GetEfSlot()
 end
 
 function Ahri:CastEf()
-    local target, pred = self.TS:GetTarget(self.ef, nil, nil, function(unit, pred)
+    local target, pred = self.ts:GetTarget(self.ef, nil, nil, function(unit, pred)
         return self.nem:IsTarget(unit) and pred.rates["slow"]
-    end, self.TS.Modes["Closest To Mouse"])
+    end, self.ts.Modes["Closest To Mouse"])
     if not pred then
         return
     end
     local slot = self:GetEfSlot()
-    SDK.Input:Cast(slot, pred.castPosition)
-    pred:Draw()
-    self.sqm:InvokeCastSpell("Ef")
-    return true
+    if SDK.Input:Cast(slot, pred.castPosition) then
+        pred:Draw()
+        self.sqm:InvokeCastSpell("Ef")
+        return true
+    end
 end
 
 function Ahri:CastAntiGapEf()
-    local target, pred = self.TS:GetTarget(self.ef, nil, nil, function(unit, pred)
+    local target, pred = self.ts:GetTarget(self.ef, nil, nil, function(unit, pred)
         local menuName = "antigap." .. unit:GetCharacterName()
         return pred and pred.targetDashing and self.menu:Get(menuName)
     end)
@@ -285,10 +289,11 @@ function Ahri:CastAntiGapEf()
         return
     end
     local slot = self:GetEfSlot()
-    SDK.Input:Cast(slot, pred.castPosition)
-    pred:Draw()
-    self.sqm:InvokeCastSpell("Ef")
-    return true
+    if SDK.Input:CastFast(slot, pred.castPosition) then
+        pred:Draw()
+        self.sqm:InvokeCastSpell("Ef")
+        return true
+    end
 end
 
 function Ahri:CastEfCc()
@@ -332,18 +337,19 @@ function Ahri:CastEfCc()
             return true
         end
     end
-    local target, pred = self.TS:GetTarget(self.ef, nil, nil, checkFunc, self.TS.Modes["Closest To Mouse"])
+    local target, pred = self.ts:GetTarget(self.ef, nil, nil, checkFunc, self.ts.Modes["Closest To Mouse"])
     if not pred then
         return
     end
     local slot = self:GetEfSlot()
-    SDK.Input:Cast(slot, pred.castPosition)
-    pred:Draw()
-    self.sqm:InvokeCastSpell("Ef")
-    return true
+    if SDK.Input:Cast(slot, pred.castPosition) then
+        pred:Draw()
+        self.sqm:InvokeCastSpell("Ef")
+        return true
+    end
 end
 
-function Ahri:OnTick()
+function Ahri:OnUpdate()
     self:InvokeFlash()
     self:CastSpells()
 end
@@ -357,11 +363,11 @@ function Ahri:InvokeFlash()
     end
     local slot = Utils.GetSummonerSlot("SummonerFlash")
     local f = slot and myHero:CanUseSpell(slot)
-    if f then
-        SDK.Input:Cast(slot, self.flashQueue.pos)
+    if f and SDK.Input:Cast(slot, self.flashQueue.pos) then
+        self.flashQueue.pos = nil
+        self.flashQueue.time = nil
+        return true
     end
-    self.flashQueue.pos = nil
-    self.flashQueue.time = nil
 end
 
 function Ahri:CastSpells()
@@ -381,13 +387,13 @@ function Ahri:CastSpells()
         return
     end
 
-    if e and self.menu:Get("e.e") and self:CastE() then
+    if e and self.tm:GetSingleTap() and self:CastE() then
         return
     end
 
     local slot = Utils.GetSummonerSlot("SummonerFlash")
     local f = slot and myHero:CanUseSpell(slot)
-    if e and f and self.menu:Get("e.eFlash") and self:CastEFlash() then
+    if e and f and self.tm:GetDoubleTap() and self:CastEFlash() then
         return
     end
 
@@ -405,7 +411,7 @@ function Ahri:CastSpells()
         end
     end
     if q and self:CastQ(function(unit)
-        return (self.menu:Get("q.q") and self.nem:IsTarget(unit)) or (isCombo and self.cm:IsCharmed(unit))
+        return (self.menu:Get("q.q") and self.nem:IsTarget(unit)) or (isCombo and self.cm:IsCharm(unit))
     end) then
         return
     end

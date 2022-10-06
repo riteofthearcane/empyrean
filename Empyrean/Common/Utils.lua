@@ -70,4 +70,9 @@ function Utils.IsValidTarget(unit)
         (unit:IsAttackableUnit() and not unit:AsAttackableUnit():IsDead())
 end
 
+---@return boolean
+function Utils.IsValidCircularPred(pred, spell)
+    return pred and myHero:GetPosition():Distance(pred.targetPosition) < spell.range
+end
+
 return Utils

@@ -14,7 +14,7 @@ function LastAutoTracker:_init()
     }
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBasicAttack,
         function(...) self:_OnBasicAttack(...) end)
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function() self:_OnTick() end)
+    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnUpdate, function() self:_OnUpdate() end)
 end
 
 ---@param obj SDK_AIBaseClient
@@ -28,7 +28,7 @@ function LastAutoTracker:_OnBasicAttack(obj, cast)
     end
 end
 
-function LastAutoTracker:_OnTick()
+function LastAutoTracker:_OnUpdate()
     if self.data.time and SDK.Game:GetTime() > self.data.time + 1 then
         self.data.time = 0
         self.data.target = nil

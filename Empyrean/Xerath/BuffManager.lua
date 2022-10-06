@@ -4,18 +4,16 @@ local SDK = require("LeagueSDK.LeagueSDK")
 ---@type SDK_AIHeroClient
 local myHero = SDK.Player
 
-local Utils = require("Common.Utils")
-
 local Q_BUFF = "XerathArcanopulseChargeUp"
 local R_BUFF = "XerathLocusOfPower2"
 
 ---@class Empyrean.Xerath.BuffManager
-local BuffManager = Utils.Class()
+local BuffManager = require("Common.Utils").Class()
 
 function BuffManager:_init()
-    self.qActive = false
-    self.qStartTime = 0
-    self.rActive = false
+    self._qActive = false
+    self._qStartTime = 0
+    self._rActive = false
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffGain, function(...) self:_OnBuffGain(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffLost, function(...) self:_OnBuffLost(...) end)
 end
@@ -26,7 +24,7 @@ function BuffManager:_OnBuffGain(obj, buff)
     if not obj or not buff then
         return
     end
-    if not obj:GetNetworkId() ~= myHero:GetNetworkId() then
+    if obj:GetNetworkId() ~= myHero:GetNetworkId() then
         return
     end
     if buff:GetName() == Q_BUFF then
@@ -40,13 +38,13 @@ function BuffManager:_OnBuffGain(obj, buff)
 end
 
 function BuffManager:_HandleQGain()
-    self.qActive = true
-    self.qStartTime = SDK.Game:GetTime()
+    self._qActive = true
+    self._qStartTime = SDK.Game:GetTime()
     --Orbwalker:BlockAttack(true)
 end
 
 function BuffManager:_HandleRGain()
-    self.rActive = true
+    self._rActive = true
     --Orbwalker:BlockAttack(true)
     --Orbwalker:BlockMove(true)
 end
@@ -57,7 +55,7 @@ function BuffManager:_OnBuffLost(obj, buff)
     if not obj or not buff then
         return
     end
-    if not obj:GetNetworkId() ~= myHero:GetNetworkId() then
+    if obj:GetNetworkId() ~= myHero:GetNetworkId() then
         return
     end
     if buff:GetName() == Q_BUFF then
@@ -71,27 +69,27 @@ function BuffManager:_OnBuffLost(obj, buff)
 end
 
 function BuffManager:_HandleQLost()
-    self.qActive = false
+    self._qActive = false
     --Orbwalker:BlockAttack(false)
 
 end
 
 function BuffManager:_HandleRLost()
-    self.rActive = false
+    self._rActive = false
     --Orbwalker:BlockAttack(false)
     --Orbwalker:BlockMove(false)
 end
 
 function BuffManager:IsQActive()
-    return self.qActive
+    return self._qActive
 end
 
 function BuffManager:IsRActive()
-    return self.rActive
+    return self._rActive
 end
 
 function BuffManager:GetQStartTime()
-    return self.qStartTime
+    return self._qStartTime
 end
 
 return BuffManager
