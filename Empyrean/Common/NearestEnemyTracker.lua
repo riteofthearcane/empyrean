@@ -11,6 +11,7 @@ function NearestEnemyTracker:_init()
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnUpdate, function() self:_OnUpdate() end)
 end
 
+---@return SDK_AIHeroClient | nil
 function NearestEnemyTracker.GetClosestEnemyToMouse()
     local mousePos = SDK.Renderer:GetMousePos3D()
     local closestDistSqr = nil

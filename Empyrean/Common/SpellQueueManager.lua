@@ -27,10 +27,21 @@ function SpellQueueManager:_InitTables(spellsData)
     self._spellLookupTable = {}
     for spell in pairs(spellsData) do
         self:_SetIdle(spell)
-        self._spellLookupTable[spellsData[spell].name] = {
-            spell = spell,
-            delay = spellsData[spell].delay or nil
-        }
+        local hasName = spellsData[spell].name ~= nil
+        if hasName then
+            self._spellLookupTable[spellsData[spell].name] = {
+                spell = spell,
+                delay = spellsData[spell].delay or nil
+            }
+        else
+            -- names is table
+            for _, name in pairs(spellsData[spell].names) do
+                self._spellLookupTable[name] = {
+                    spell = spell,
+                    delay = spellsData[spell].delay or nil
+                }
+            end
+        end
     end
 end
 
@@ -84,7 +95,7 @@ end
 
 ---@return number
 function SpellQueueManager:_GetVerificationDeadline()
-    return SDK.Game:GetTime() + SDK.Game:GetLatency() / 1000 + 0.03
+    return SDK.Game:GetTime() + SDK.Game:GetLatency() / 1000 + 0.1
 end
 
 ---@return nil

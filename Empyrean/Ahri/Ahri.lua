@@ -204,34 +204,12 @@ function Ahri:CastE()
     end
 end
 
-function Ahri:GenerateFlashPositions()
+function Ahri:CastEFlash()
     local target = self.nem:GetClosestEnemyToMouse()
     if not target then
         return
     end
-    local flashDist = 400
-    local posList = {}
-    ---@type SDK_VECTOR
-    local dir = (target:GetPosition() - myHero:GetPosition()):Normalized()
-    local flashPos = myHero:GetPosition() + dir * flashDist
-    if not SDK.NavMesh:IsWall(flashPos) then
-        table.insert(posList, flashPos)
-    end
-    for i = 30, 90, 30 do
-        local pos1 = myHero:GetPosition() + dir:Rotated(0, i, 0) * flashDist
-        local pos2 = myHero:GetPosition() + dir:Rotated(0, -i, 0) * flashDist
-        if not SDK.NavMesh:IsWall(pos1) then
-            table.insert(posList, pos1)
-        end
-        if not SDK.NavMesh:IsWall(pos2) then
-            table.insert(posList, pos2)
-        end
-    end
-    return posList
-end
-
-function Ahri:CastEFlash()
-    local posList = self:GenerateFlashPositions()
+    local posList = Utils.GenerateSpellFlashPositions(target)
     for _, pos in pairs(posList) do
         local target, pred = self.ts:GetTarget(self.e, pos, nil, function(unit, pred)
             return self.nem:IsTarget(unit) and pred.rates["slow"]

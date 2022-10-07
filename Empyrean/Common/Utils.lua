@@ -19,6 +19,8 @@ local SUMMONER_SLOTS = {
     SDK.Enums.SpellSlot.Summoner2
 }
 
+local FLASH_DIST = 400
+
 local Utils = {}
 
 function Utils.Class()
@@ -35,6 +37,9 @@ function Utils.Class()
 end
 
 Utils.COLOR_WHITE = SDK.Libs.Color.GetD3DColor(255, 255, 255, 255)
+Utils.COLOR_RED = SDK.Libs.Color.GetD3DColor(255, 255, 0, 0)
+Utils.COLOR_GREEN = SDK.Libs.Color.GetD3DColor(255, 0, 255, 0)
+Utils.COLOR_BLUE = SDK.Libs.Color.GetD3DColor(255, 0, 0, 255)
 
 ---@param item string
 ---@return number | nil
@@ -63,6 +68,45 @@ function Utils.IsMyHeroDashing()
     return myHero:AsAI():GetPathing():IsDashing()
 end
 
+---@param enemy SDK_AIHeroClient
+function Utils.GenerateSpellFlashPositions(enemy)
+    local posList = {}
+    ---@type SDK_VECTOR
+    local dir = (enemy:GetPosition() - myHero:GetPosition()):Normalized()
+    local flashPos = myHero:GetPosition() + dir * FLASH_DIST
+    if not SDK.NavMesh:IsWall(flashPos) then
+        table.insert(posList, flashPos)
+    end
+    for i = 30, 90, 30 do
+        local pos1 = myHero:GetPosition() + dir:Rotated(0, i, 0) * FLASH_DIST
+        local pos2 = myHero:GetPosition() + dir:Rotated(0, -i, 0) * FLASH_DIST
+        if not SDK.NavMesh:IsWall(pos1) then
+            table.insert(posList, pos1)
+        end
+        if not SDK.NavMesh:IsWall(pos2) then
+            table.insert(posList, pos2)
+        end
+    end
+    return posList
+end
+
+local EQ_THRESHOLD = 0.01
+
+--- checks in list for same number as the last number in list
+---@param list number[]
+---@return boolean
+function Utils.CheckForSame(list)
+    if #list >= 2 then
+        local last = list[#list]
+        for i = #list - 1, 1, -1 do
+            if math.abs(last - list[i]) < EQ_THRESHOLD then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 ---@param unit SDK_AIHeroClient
 ---@return boolean
 function Utils.IsValidTarget(unit)
@@ -73,6 +117,14 @@ end
 ---@return boolean
 function Utils.IsValidCircularPred(pred, spell)
     return pred and myHero:GetPosition():Distance(pred.targetPosition) < spell.range
+end
+
+function Utils.Uuid()
+    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    return string.gsub(template, '[xy]', function(c)
+        local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
+        return string.format('%x', v)
+    end)
 end
 
 return Utils

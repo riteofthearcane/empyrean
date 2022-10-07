@@ -38,6 +38,10 @@ Module "Ahri.LastAutoTracker" "Empyrean/Ahri/LastAutoTracker.lua"
 Module "Xerath.BuffManager" "Empyrean/Xerath/BuffManager.lua"
 Module "Xerath.Main" "Empyrean/Xerath/Xerath.lua"
 
+Module "Syndra.Main" "Empyrean/Syndra/Syndra.lua"
+Module "Syndra.Constants" "Empyrean/Syndra/Constants.lua"
+Module "Syndra.OrbManager" "Empyrean/Syndra/OrbManager.lua"
+
 
 Module "Common.Utils" "Empyrean/Common/utils.lua"
 Module "Common.SpellQueueManager" "Empyrean/Common/SpellQueueManager.lua"
@@ -49,6 +53,8 @@ Module "Common.MinionTracker" "Empyrean/Common/MinionTracker.lua"
 Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"
 Module "LeagueSDK.Resolver" "LeagueSDK/Resolver.lua"
 Module "LeagueSDK.Api.Common.Vector" "LeagueSDK/Api/Common/Vector.lua"
+Module "LeagueSDK.Api.Common.LineSegment" "LeagueSDK/Api/Common/LineSegment.lua"
+
 LoadSDKModules(PLATFORM)
 
 -- LoadAuth(PLATFORM)

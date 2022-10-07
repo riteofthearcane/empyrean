@@ -9,6 +9,7 @@ local DreamTSLib = _G.DreamTS or require("DreamTS")
 local DreamTS = DreamTSLib.TargetSelectorSdk
 local Utils = require("Common.Utils")
 local SpellQueueManager = require("Common.SpellQueueManager")
+local NearestEnemyTracker = require("Common.NearestEnemyTracker")
 local TapManager = require("Common.TapManager")
 local BuffManager = require("Xerath.BuffManager")
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
@@ -63,6 +64,11 @@ function Xerath:InitFields()
         speed = math.huge,
     }
 
+    self.flashQueue = {
+        pos = nil,
+        time = nil
+    }
+
     ---@type Empyrean.Common.SpellQueueManager
     self.sqm = SpellQueueManager({
         Q1 = {
@@ -91,6 +97,9 @@ function Xerath:InitFields()
         function() return not self.menu:Get("e.useTap") and self.menu:Get("e.e") end,
         function() return not self.menu:Get("e.useTap") and self.menu:Get("e.eFlash") end
     )
+
+    ---@type Empyrean.Common.NearestEnemyTracker
+    self.nem = NearestEnemyTracker()
 
     self.ts =
     DreamTS(
@@ -131,7 +140,7 @@ function Xerath:InitMenu()
     end
     local drawMenu = self.menu:AddSubMenu("draw", "Draw")
     drawMenu:AddCheckbox("q", "Draw Q range", true)
-    drawMenu:AddCheckbox("e", "Draw E range", true)
+    drawMenu:AddCheckbox("we", "Draw W/E range", true)
     drawMenu:AddCheckbox("r", "Draw R range", true)
     drawMenu:AddCheckbox("rMinimap", "Draw R range on minimap", true)
     drawMenu:AddCheckbox("rCircle", "Draw R aim circle ", true)
@@ -147,8 +156,8 @@ function Xerath:OnDraw()
     if not self.bm:IsRActive() and self.menu:Get("draw.q") then
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.q.range, Utils.COLOR_WHITE)
     end
-    if not self.bm:IsQActive() and not self.bm:IsRActive() and self.menu:Get("draw.e") then
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.e.range, Utils.COLOR_WHITE)
+    if not self.bm:IsQActive() and not self.bm:IsRActive() and self.menu:Get("draw.we") then
+        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.w.range, Utils.COLOR_WHITE)
     end
     if self.menu:Get("draw.r") then
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.r.range, Utils.COLOR_WHITE)
@@ -270,6 +279,26 @@ function Xerath:CastE()
     end
 end
 
+function Xerath:CastEFlash()
+    local target = self.nem:GetClosestEnemyToMouse()
+    if not target then
+        return
+    end
+    local posList = Utils.GenerateSpellFlashPositions(target)
+    for _, pos in pairs(posList) do
+        local target, pred = self.ts:GetTarget(self.e, pos, nil, function(unit, pred)
+            return self.nem:IsTarget(unit) and pred.rates["slow"]
+        end, self.ts.Modes["Closest To Mouse"])
+        if pred and SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
+            pred:Draw()
+            self.sqm:InvokeCastSpell("E")
+            self.flashQueue.pos = pos
+            self.flashQueue.time = SDK.Game:GetTime() + self.e.delay - 0.10
+            return true
+        end
+    end
+end
+
 function Xerath:CastAntiGapE()
     local target, pred = self.ts:GetTarget(self.e, nil, nil, function(unit, pred)
         local menuName = "antigap." .. unit:GetCharacterName() .. ".e"
@@ -316,17 +345,35 @@ function Xerath:IsInRCircle(enemy)
     return enemy:GetPosition():Distance(SDK.Renderer:GetMousePos3D()) < self.menu:Get("r.circle")
 end
 
+
+
 function Xerath:OnUpdate()
     self:UpdateQRange()
+    self:InvokeFlash()
     self:CastSpells()
 end
 
+function Xerath:InvokeFlash()
+    if not self.flashQueue.time then
+        return
+    end
+    if SDK.Game:GetTime() < self.flashQueue.time then
+        return
+    end
+    local slot = Utils.GetSummonerSlot("SummonerFlash")
+    local f = slot and myHero:CanUseSpell(slot)
+    if f and SDK.Input:Cast(slot, self.flashQueue.pos) then
+        self.flashQueue.pos = nil
+        self.flashQueue.time = nil
+        return true
+    end
+end
+
 function Xerath:CastSpells()
-    self.time = SDK.Game:GetTime()
     local evade = _G.DreamEvade and _G.DreamEvade.HasPath()
     local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.sqm:ShouldCast() and not evade
     local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.sqm:ShouldCast() and not evade
-    local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.sqm:ShouldCast() and not evade
+    local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.sqm:ShouldCast()
     local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R) and self.sqm:ShouldCast()
 
     if self.bm:IsRActive() then
@@ -353,7 +400,13 @@ function Xerath:CastSpells()
         return
     end
 
-    if e and self.menu:Get("e.e") and self:CastE() then
+    if e and self.tm:GetSingleTap() and self:CastE() then
+        return
+    end
+
+    local slot = Utils.GetSummonerSlot("SummonerFlash")
+    local f = slot and myHero:CanUseSpell(slot)
+    if e and f and self.tm:GetDoubleTap() and self:CastEFlash() then
         return
     end
 
