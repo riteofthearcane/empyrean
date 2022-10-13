@@ -8,7 +8,7 @@ local myHero = SDK.Player
 local DreamTSLib = _G.DreamTS or require("DreamTS")
 local DreamTS = DreamTSLib.TargetSelectorSdk
 local Utils = require("Common.Utils")
-local SpellQueueManager = require("Common.SpellQueueManager")
+local SpellLockManager = require("Common.SpellLockManager")
 local NearestEnemyTracker = require("Common.NearestEnemyTracker")
 local TapManager = require("Common.TapManager")
 local BuffManager = require("Xerath.BuffManager")
@@ -69,25 +69,8 @@ function Xerath:InitFields()
         time = nil
     }
 
-    ---@type Empyrean.Common.SpellQueueManager
-    self.sqm = SpellQueueManager({
-        Q1 = {
-            name = "XerathArcanopulseChargeUp",
-            delay = 0.15
-        },
-        Q2 = {
-            name = "XerathArcanopulse2",
-        },
-        W = {
-            name = "XerathArcaneBarrage2",
-        },
-        E = {
-            name = "XerathMageSpear",
-        },
-        R = {
-            name = "XerathLocusPulse",
-        }
-    })
+    ---@type Empyrean.Common.SpellLockManager
+    self.slm = SpellLockManager()
     ---@type Empyrean.Xerath.BuffManager
     self.bm = BuffManager()
 
@@ -119,6 +102,7 @@ function Xerath:InitMenu()
     local wMenu = self.menu:AddSubMenu("w", "W: Eye of Destruction")
     wMenu:AddLabel("Cast W in combo")
     local eMenu = self.menu:AddSubMenu("e", "E: Shocking Orb")
+    eMenu:AddCheckbox("useCombo", "Use E in Combo", true)
     eMenu:AddCheckbox("useTap", "Cast E/E Flash by single or double tapping key", true)
     eMenu:AddKeybind("eTap", "E Tap Key", string.byte("E"))
     eMenu:AddLabel("Alternatively use separate keys (disabled if above toggle on)")
@@ -198,19 +182,15 @@ function Xerath:CastQ1()
     --     if SDK.Input:CastFast(SDK.Enums.SpellSlot.Q, pred.castPosition) and
     --         SDK.Input:Release(SDK.Enums.SpellSlot.Q, pred.castPosition) then
     --         pred.drawRange = self.q.min
-    --         self.sqm:InvokeCastSpell("Q1")
-    --         self.sqm:InvokeCastSpell("Q2")
     --         pred:Draw()
     --         return true
     --     end
     -- else
     --     if not SDK.Input:Cast(SDK.Enums.SpellSlot.Q, pred.castPosition) then
-    --         self.sqm:InvokeCastSpell("Q1")
     --         return true
     --     end
     -- end
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.Q, pred.castPosition) then
-        self.sqm:InvokeCastSpell("Q1")
         return true
     end
 end
@@ -221,7 +201,6 @@ function Xerath:CastQ2()
         return
     end
     if not SDK.Input:Release(SDK.Enums.SpellSlot.Q, pred.castPosition) then
-        self.sqm:InvokeCastSpell("Q2")
         pred:Draw()
         return true
     end
@@ -246,7 +225,6 @@ function Xerath:CastW()
         return
     end
     if SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then
-        self.sqm:InvokeCastSpell("W")
         pred:Draw()
         return true
     end
@@ -261,7 +239,6 @@ function Xerath:CastAntiGapW()
         return
     end
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.W, pred.castPosition) then
-        self.sqm:InvokeCastSpell("W")
         pred:Draw()
         return true
     end
@@ -273,7 +250,6 @@ function Xerath:CastE()
         return
     end
     if SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
-        self.sqm:InvokeCastSpell("E")
         pred:Draw()
         return true
     end
@@ -291,7 +267,6 @@ function Xerath:CastEFlash()
         end, self.ts.Modes["Closest To Mouse"])
         if pred and SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
             pred:Draw()
-            self.sqm:InvokeCastSpell("E")
             self.flashQueue.pos = pos
             self.flashQueue.time = SDK.Game:GetTime() + self.e.delay - 0.10
             return true
@@ -308,7 +283,6 @@ function Xerath:CastAntiGapE()
         return
     end
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.E, pred.castPosition) then
-        self.sqm:InvokeCastSpell("E")
         pred:Draw()
         return true
     end
@@ -321,7 +295,6 @@ function Xerath:CastR()
     if circlePred then
         if circlePred.rates["slow"] then
             SDK.Input:Cast(SDK.Enums.SpellSlot.R, circlePred.castPosition)
-            self.sqm:InvokeCastSpell("R")
             circlePred:Draw()
             return true
         end
@@ -335,7 +308,6 @@ function Xerath:CastR()
         return
     end
     if SDK.Input:Cast(SDK.Enums.SpellSlot.R, pred.castPosition) then
-        self.sqm:InvokeCastSpell("R")
         pred:Draw()
         return true
     end
@@ -344,8 +316,6 @@ end
 function Xerath:IsInRCircle(enemy)
     return enemy:GetPosition():Distance(SDK.Renderer:GetMousePos3D()) < self.menu:Get("r.circle")
 end
-
-
 
 function Xerath:OnUpdate()
     self:UpdateQRange()
@@ -371,10 +341,10 @@ end
 
 function Xerath:CastSpells()
     local evade = _G.DreamEvade and _G.DreamEvade.HasPath()
-    local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.sqm:ShouldCast() and not evade
-    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.sqm:ShouldCast() and not evade
-    local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.sqm:ShouldCast()
-    local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R) and self.sqm:ShouldCast()
+    local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast() and not evade
+    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.slm:ShouldCast() and not evade
+    local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.slm:ShouldCast()
+    local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R) and self.slm:ShouldCast()
 
     if self.bm:IsRActive() then
         if r and self.menu:Get("r.r") then
@@ -399,8 +369,7 @@ function Xerath:CastSpells()
     if w and self:CastAntiGapW() then
         return
     end
-
-    if e and self.tm:GetSingleTap() and self:CastE() then
+    if e and (isCombo and self.menu:Get("e.useCombo") or self.tm:GetSingleTap()) and self:CastE() then
         return
     end
 

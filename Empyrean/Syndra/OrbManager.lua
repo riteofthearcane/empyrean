@@ -27,6 +27,7 @@ function OrbManager:_InitTables()
     self._queueHeldSearch = false
     self._eBlacklist = {} -- should not E held orbs
     self._wBlacklist = {} -- should not W pushed orbs
+    self.eLog = {}
 end
 
 function OrbManager:_InitEvents()
@@ -44,6 +45,15 @@ end
 ---@param obj SDK_GameObject
 ---@param path SDK_Pathing
 function OrbManager:_OnNewPath(obj, path)
+    -- if obj:GetName() == "Seed" and path:GetDashSpeed() == 2000 then
+    --     print("time from cast: " .. SDK.Game:GetTime() - self.qCast)
+    --     for uuid, orb in pairs(self._orbs) do
+    --         if obj:GetNetworkId() == orb.netId and self.eLog[uuid] then
+    --             print("dist on cast: " .. self.eLog[uuid])
+    --             self.eLog[uuid] = nil
+    --         end
+    --     end
+    -- end
 end
 
 ---@param obj SDK_GameObject
@@ -122,9 +132,24 @@ function OrbManager:_GetHeldOrb()
     -- loop through orbs
     for _, orb in pairs(self._orbs) do
         if orb.isInit and orb.obj:AsAI():IsSurpressed() then
+            SDK.PrintChat('ORBMANAGER: orb held')
             return {
                 obj = orb.obj,
                 isOrb = true,
+            }
+        end
+    end
+end
+
+---@return table | nil
+function OrbManager:_GetHeldMinion()
+    local minions = SDK.ObjectManager:GetEnemyMinions()
+    for _, minion in ipairs(minions) do
+        local buff = minion:AsAI():GetBuff("syndrawbuff")
+        if buff then
+            return {
+                obj = minion,
+                isOrb = false,
             }
         end
     end
@@ -159,6 +184,7 @@ function OrbManager:_CheckEPushedOrbs(pos)
             self._wBlacklist[uuid] = {
                 nextCheckTime = SDK.Game:GetTime() + Constants.E_ORB_CONTACT_RANGE / Constants.E.speed + 0.1,
             }
+            self.eLog[uuid] = orb.GetPos():Distance(myHero:GetPosition())
         end
     end
 end
@@ -168,13 +194,6 @@ end
 function OrbManager:_OnBuffGain(obj, buff)
     if obj:GetNetworkId() == myHero:GetNetworkId() and buff:GetName() == "syndrawtooltip" then
         self._queueHeldSearch = true
-    end
-    if buff:GetName() == "syndrawbuff" then
-        self._held = {
-            obj = obj,
-            isOrb = false,
-        }
-        self._queueHeldSearch = false
     end
 end
 
@@ -195,7 +214,8 @@ end
 function OrbManager:_MoveOrbToEBlacklist(obj)
     for uuid, orb in pairs(self._orbs) do
         if orb.netId == obj:GetNetworkId() then
-            local speed = obj:AsAI():GetPathing():GetWaypointCount() >= 2 and obj:AsAI():GetPathing():GetDashSpeed() or nil
+            local speed = obj:AsAI():GetPathing():GetWaypointCount() >= 2 and obj:AsAI():GetPathing():GetDashSpeed() or
+                nil
             local endPos = speed and obj:AsAI():GetPathing():GetWaypoint(2) or nil
             local pathTime = speed and obj:GetPosition():Distance(endPos) / speed or 0
             self._eBlacklist[uuid] = {
@@ -214,9 +234,12 @@ function OrbManager:_OnProcessSpell(obj, cast)
     end
     if cast:GetName() == "SyndraQ" or cast:GetName() == "SyndraQUpgrade" then
         self:_HandleOrbCast(cast:GetEndPos())
+        return
     end
     if cast:GetName() == "SyndraE" or cast:GetName() == "SyndraE5" then
+        self.qCast = SDK.Game:GetTime()
         self:_CheckEPushedOrbs(cast:GetEndPos())
+        return
     end
 end
 
@@ -267,10 +290,10 @@ function OrbManager:_OnUpdate()
     self:_ExpireEBlacklist()
 
     if self._queueHeldSearch then
-        local res = self:_GetHeldOrb()
+        local res = self:_GetHeldOrb() or self:_GetHeldMinion()
         if res then
             self._held = res
-            self:_HandleOrbHeld(res.obj)
+            if res.isOrb then self:_HandleOrbHeld(res.obj) end
             self._queueHeldSearch = false
         end
     end
@@ -320,6 +343,18 @@ function OrbManager:_ExpireOrbs()
     end
 end
 
+---@return SDK_VECTOR[]
+function OrbManager:GetEHitOrbs()
+    local res = {}
+    for uuid, orb in pairs(self._orbs) do
+        if orb.isInit and not self._eBlacklist[uuid] then
+            table.insert(res, orb.GetPos())
+        end
+    end
+    --TODO: add orbs not init
+    return res
+end
+
 function OrbManager:_OnDraw()
     for _, orb in pairs(self._orbs) do
         local color = orb.isInit and Utils.COLOR_BLUE or Utils.COLOR_RED
@@ -327,7 +362,7 @@ function OrbManager:_OnDraw()
     end
     if self._held.obj then
         local color = self._held.isOrb and Utils.COLOR_BLUE or Utils.COLOR_RED
-        SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 75, color)
+        SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 150, color)
     end
     for uuid in pairs(self._wBlacklist) do
         local pos = self._orbs[uuid] and self._orbs[uuid].GetPos() or nil

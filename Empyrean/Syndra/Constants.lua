@@ -21,7 +21,7 @@ return {
     },
     E = {
         type = "linear",
-        speed = 1600, -- e cone pulse speed
+        speed = 2500    , -- e cone pulse speed
         range = 1200,
         delay = 0.25,
         width = 200,
@@ -31,6 +31,7 @@ return {
             ["Minion"] = false
         }
     },
+    R_RANGE = 675,
     ORB_LIFETIME = 6,
     W_GRAB_RANGE = 925,
     W_TARGET_RANGE = 500,

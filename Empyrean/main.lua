@@ -5,13 +5,9 @@ local SDK = require("LeagueSDK.LeagueSDK")
 local myHero = SDK.Player
 
 local SUPPORTED_CHAMPIONS = {
-    ["Ezreal"] = true,
     ["Xerath"] = true,
     ["Syndra"] = true,
-    ["Lucian"] = true,
-    ["Yone"] = true,
     ["Ahri"] = true,
-    ["Taliyah"] = true
 }
 
 
@@ -19,11 +15,42 @@ if not SUPPORTED_CHAMPIONS[myHero:GetCharacterName()] then
     return
 end
 
-require("Common.MinionTracker")
+local loaded = false
 
-SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function()
-    if not _G.DreamTS or not _G.Prediction then
-        return
-    end
-    require(myHero:GetCharacterName() .. ".Main")
-end)
+if SDK.GetPlatform() == "FF15" then
+    local dependencies = {
+        {
+            "DreamPred",
+            _G.PaidScript.DREAM_PRED,
+            function()
+                return _G.Prediction
+            end
+        }
+    }
+    local ModernUOL = require("ModernUOL")
+    ModernUOL:OnOrbLoad(
+        function()
+            _G.LoadDependenciesAsync(
+                dependencies,
+                function(success)
+                    if success then
+                        require(myHero:GetCharacterName() .. ".Main")
+                    end
+                end
+            )
+        end
+    )
+else
+    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnTick, function()
+        if loaded then
+            return
+        end
+        if not _G.DreamTS or not _G.Prediction then
+            return
+        end
+
+        require(myHero:GetCharacterName() .. ".Main")
+        loaded = true
+    end)
+
+end

@@ -8,7 +8,7 @@ local myHero = SDK.Player
 local DreamTSLib = _G.DreamTS or require("DreamTS")
 local DreamTS = DreamTSLib.TargetSelectorSdk
 local Utils = require("Common.Utils")
-local SpellQueueManager = require("Common.SpellQueueManager")
+local SpellLockManager = require("Common.SpellLockManager")
 local NearestEnemyTracker = require("Common.NearestEnemyTracker")
 local TapManager = require("Common.TapManager")
 local CharmTracker = require("Ahri.CharmTracker")
@@ -77,21 +77,8 @@ function Ahri:InitFields()
     }
 
 
-    ---@type Empyrean.Common.SpellQueueManager
-    self.sqm = SpellQueueManager({
-        Q = {
-            name = "AhriOrbofDeception",
-        },
-        W = {
-            name = "AhriFoxFire",
-        },
-        E = {
-            name = "AhriSeduce",
-        },
-        Ef = {
-            name = "6656Cast",
-        }
-    })
+    ---@type Empyrean.Common.SpellLockManager
+    self.slm = SpellLockManager()
     ---@type Empyrean.Common.NearestEnemyTracker
     self.nem = NearestEnemyTracker()
     ---@type Empyrean.Ahri.CharmTracker
@@ -171,7 +158,6 @@ function Ahri:CastQ(unitFunc)
         return
     end
     if SDK.Input:Cast(SDK.Enums.SpellSlot.Q, pred.castPosition) then
-        self.sqm:InvokeCastSpell("Q")
         pred:Draw()
         return true
     end
@@ -199,7 +185,6 @@ function Ahri:CastE()
     end
     if SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
         pred:Draw()
-        self.sqm:InvokeCastSpell("E")
         return true
     end
 end
@@ -216,7 +201,6 @@ function Ahri:CastEFlash()
         end, self.ts.Modes["Closest To Mouse"])
         if pred and SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
             pred:Draw()
-            self.sqm:InvokeCastSpell("E")
             self.flashQueue.pos = pos
             self.flashQueue.time = SDK.Game:GetTime() + self.e.delay - 0.10
             return true
@@ -233,7 +217,6 @@ function Ahri:CastAntiGapE()
         return
     end
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.E, pred.castPosition) then
-        self.sqm:InvokeCastSpell("E")
         pred:Draw()
         return true
     end
@@ -253,7 +236,6 @@ function Ahri:CastEf()
     local slot = self:GetEfSlot()
     if SDK.Input:Cast(slot, pred.castPosition) then
         pred:Draw()
-        self.sqm:InvokeCastSpell("Ef")
         return true
     end
 end
@@ -269,7 +251,6 @@ function Ahri:CastAntiGapEf()
     local slot = self:GetEfSlot()
     if SDK.Input:CastFast(slot, pred.castPosition) then
         pred:Draw()
-        self.sqm:InvokeCastSpell("Ef")
         return true
     end
 end
@@ -322,7 +303,6 @@ function Ahri:CastEfCc()
     local slot = self:GetEfSlot()
     if SDK.Input:Cast(slot, pred.castPosition) then
         pred:Draw()
-        self.sqm:InvokeCastSpell("Ef")
         return true
     end
 end
@@ -350,13 +330,13 @@ end
 
 function Ahri:CastSpells()
     local evade = _G.DreamEvade and _G.DreamEvade.HasPath()
-    local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.sqm:ShouldCast() and
+    local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast() and
         not Utils.IsMyHeroDashing() and not evade
-    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.sqm:ShouldCastSpell("W")
-    local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.sqm:ShouldCast() and
+    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.slm:ShouldCastSpell(SDK.Enums.SpellSlot.W)
+    local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.slm:ShouldCast() and
         not Utils.IsMyHeroDashing()
     local efSlot = self:GetEfSlot()
-    local ef = efSlot and myHero:CanUseSpell(efSlot) and self.sqm:ShouldCastSpell("Ef")
+    local ef = efSlot and myHero:CanUseSpell(efSlot) and self.slm:ShouldCast()
     if e and self:CastAntiGapE() then
         return
     end
