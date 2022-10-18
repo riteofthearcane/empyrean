@@ -34,9 +34,6 @@ function SpellLockManager:_OnCastSpell(args)
     local name = myHero:GetSpell(args.Slot):GetName()
     if not self._invokes[name] then self._invokesLen = self._invokesLen + 1 end
     local delay = self.delayLookup[name] or 0
-    if name == "SyndraW" then
-        SDK.PrintChat("SPELLLOCKMANAGER: Syndra W cast")
-    end
     self._invokes[name] = SDK.Game:GetTime() + SDK.Game:GetLatency() / 1000 + DELAY_BUFFER + delay
 end
 

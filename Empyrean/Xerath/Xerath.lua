@@ -216,11 +216,7 @@ function Xerath:HasWPred()
 end
 
 function Xerath:CastW()
-    local target, pred = self.ts:GetTarget(self.w, nil, nil,
-        function(unit, pred)
-            -- anti feez pred
-            return Utils.IsValidCircularPred(pred, self.w)
-        end)
+    local target, pred = self.ts:GetTarget(self.w)
     if not pred or not pred.rates["slow"] then
         return
     end
@@ -340,9 +336,8 @@ function Xerath:InvokeFlash()
 end
 
 function Xerath:CastSpells()
-    local evade = _G.DreamEvade and _G.DreamEvade.HasPath()
-    local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast() and not evade
-    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.slm:ShouldCast() and not evade
+    local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast()
+    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.slm:ShouldCast()
     local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.slm:ShouldCast()
     local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R) and self.slm:ShouldCast()
 
@@ -354,9 +349,10 @@ function Xerath:CastSpells()
     end
 
     local isCombo = SDK.Libs.Orbwalker:IsComboMode()
+    local isHarass = SDK.Libs.Orbwalker:IsHarassMode()
 
     if self.bm:IsQActive() then
-        if isCombo and q then
+        if (isCombo or isHarass) and q then
             self:CastQ2()
         end
         return
@@ -387,6 +383,15 @@ function Xerath:CastSpells()
             return
         end
     end
+    if isHarass then
+        if w and self:CastW() then
+            return
+        end
+        if not w and q and self:CastQ1() then
+            return
+        end
+    end
+
 end
 
 Xerath:__init()

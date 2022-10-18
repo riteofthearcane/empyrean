@@ -90,7 +90,7 @@ function Utils.GenerateSpellFlashPositions(enemy)
     return posList
 end
 
-local EQ_THRESHOLD = 0.01
+local EQ_THRESHOLD = 1
 
 --- checks in list for same number as the last number in list
 ---@param list number[]
@@ -112,6 +112,12 @@ end
 function Utils.IsValidTarget(unit)
     return unit and unit:IsValid() and unit:IsVisible() and
         (unit:IsAttackableUnit() and not unit:AsAttackableUnit():IsDead())
+end
+
+---@param unit SDK_AIHeroClient
+---@return SDK_VECTOR
+function Utils.GetSourcePosition(unit)
+    return _G.Prediction.SDK.GetUnitPosition(unit, SDK.Game:GetLatency() / 2000)
 end
 
 ---@return boolean

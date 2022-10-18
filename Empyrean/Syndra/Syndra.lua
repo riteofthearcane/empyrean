@@ -9,10 +9,12 @@ local DreamTSLib = _G.DreamTS or require("DreamTS")
 local DreamTS = DreamTSLib.TargetSelectorSdk
 local Utils = require("Common.Utils")
 local SpellLockManager = require("Common.SpellLockManager")
+local NearestEnemyTracker = require("Common.NearestEnemyTracker")
 local OrbManager = require("Syndra.OrbManager")
 local Constants = require("Syndra.Constants")
 local Geometry = require("Common.Geometry")
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
+local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
 
 local Syndra = {}
 
@@ -29,6 +31,8 @@ function Syndra:InitFields()
     ---@type Empyrean.Syndra.OrbManager
     self.om = OrbManager()
 
+    ---@type Empyrean.Common.NearestEnemyTracker
+    self.nem = NearestEnemyTracker()
 
     ---@type Empyrean.Common.SpellLockManager
     self.slm = SpellLockManager({
@@ -57,12 +61,9 @@ function Syndra:InitMenu()
     eMenu:AddLabel("Use key with combo to stun with QE/WE/E")
     eMenu:AddKeybind("e", "E Key", string.byte("E"))
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
-    rMenu:AddLabel("Cast R in combo if killable")
-    rMenu:AddKeybind("disable", "Disable R Key", string.byte("Z"))
-    for _, enemy in pairs(enemies) do
-        local charName = enemy:GetCharacterName()
-        rMenu:AddCheckbox(charName, charName, true)
-    end
+    rMenu:AddLabel("Use LMB to cast R to execute")
+    rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
+    rMenu:AddSlider("circle", "R aim circle radius", { min = 100, max = 500, default = 200, step = 100 })
     local antigapMenu = self.menu:AddSubMenu("antigap", "Anti-Gap")
     antigapMenu:AddLabel("Cast QE/WE on anti-gap")
     for _, enemy in pairs(enemies) do
@@ -72,6 +73,7 @@ function Syndra:InitMenu()
     local drawMenu = self.menu:AddSubMenu("draw", "Draw")
     drawMenu:AddCheckbox("q", "Draw Q range", true)
     drawMenu:AddCheckbox("e", "Draw E range", true)
+    drawMenu:AddCheckbox("rCircle", "Draw R aim circle", true)
     self.menu:Render()
 end
 
@@ -93,7 +95,6 @@ function Syndra:CastW2()
     if not pred or not pred.rates["slow"] then return end
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then return end
     pred:Draw()
-    SDK.PrintChat("Casting W2")
     return true
     -- TODO: wall checks
 end
@@ -104,7 +105,6 @@ function Syndra:CastW1()
         return
     end
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, grabTargetTable.pos) then return end
-    SDK.PrintChat("Casting W1")
     return true
 end
 
@@ -115,8 +115,9 @@ function Syndra:GetQEAoeEPos(qPos)
     for _, orbPos in pairs(orbPosTable) do
         table.insert(posTable, { pos = orbPos, isPrio = false })
     end
-    local res = Geometry.BestAoeConic(myHero:GetPosition(), Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(), posTable)
-    if not res then 
+    local res = Geometry.BestAoeConic(myHero:GetPosition(), Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
+        posTable)
+    if not res then
         print('WTF no EPOS')
     end
     return res.pos
@@ -183,7 +184,7 @@ function Syndra:CastQELong(enemy)
         iterPred:Draw()
         return true
     else
-        SDK.PrintChat("SYNDRA: Cast QEShort fail")
+        print("SYNDRA: Cast QEShort fail")
     end
 end
 
@@ -261,25 +262,27 @@ function Syndra:CastQEShort()
         pred:Draw()
         return true
     else
-        SDK.PrintChat("SYNDRA: Cast QEShort fail")
+        print("SYNDRA: Cast QEShort fail")
     end
 end
 
----@param enemy SDK_AIHeroClient
-function Syndra:CastQEAntigap(enemy)
+function Syndra:CastQEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-        function(unit, pred) return pred.targetDashing and enemy:GetNetworkId() == unit:GetNetworkId() end)
-    if not pred or myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+        function(unit, pred) return pred.targetDashing and
+                myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.menu:Get("antigap." .. unit:GetCharacterName())
+        end)
+    if not pred then
         return
     end
     if not self:CanEShort(pred, target) then return end
     local qPos = self:GetQEShortQPos(pred.castPosition)
     local ePos = self:GetQEAoeEPos(qPos)
-    if SDK.Input:CastFast(SDK.Enums.SpellSlot.Q, qPos) and SDK.Input:CastFast(SDK.Enums.SpellSlot.E, ePos) then
+    if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.Q, qPos) and SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
         return true
     else
-        SDK.PrintChat("CAST QE ANTIGAP FAIL")
+        print("CAST QE ANTIGAP FAIL")
     end
 end
 
@@ -298,25 +301,27 @@ function Syndra:CastWEShort()
         pred:Draw()
         return true
     else
-        SDK.PrintChat("SYNDRA: Cast WEShort fail")
+        print("SYNDRA: Cast WEShort fail")
     end
 end
 
----@param enemy SDK_AIHeroClient
-function Syndra:CastWEAntigap(enemy)
+function Syndra:CastWEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-        function(unit, pred) return pred.targetDashing and enemy:GetNetworkId() == unit:GetNetworkId() end)
-    if not pred or myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+        function(unit, pred) return pred.targetDashing and
+                myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.menu:Get("antigap." .. unit:GetCharacterName())
+        end)
+    if not pred then
         return
     end
     if not self:CanEShort(pred, target) then return end
     local wPos = self:GetQEShortQPos(pred.castPosition)
     local ePos = self:GetQEAoeEPos(wPos)
-    if SDK.Input:CastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:CastFast(SDK.Enums.SpellSlot.E, ePos) then
+    if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
         return true
     else
-        SDK.PrintChat("CAST WE ANTIGAP FAIL")
+        print("CAST WE ANTIGAP FAIL")
     end
 end
 
@@ -336,19 +341,8 @@ function Syndra:CastWELong(enemy)
         iterPred:Draw()
         return true
     else
-        SDK.PrintChat("SYNDRA: Cast WELong fail") 
+        print("SYNDRA: Cast WELong fail")
     end
-end
-
----@param slow boolean
----@
-function Syndra:GetAntigapTarget(slow)
-    local check = setmetatable({ width = slow and Constants.E.width + 0.2 or Constants.E.width },
-        { __index = Constants.E })
-    local target, pred = self.ts:GetTarget(check, nil, nil, function(unit, pred)
-        return pred.targetDashing and self.menu:Get("antigap." .. unit:GetCharacterName())
-    end)
-    return target
 end
 
 function Syndra:OnDraw()
@@ -358,17 +352,18 @@ function Syndra:OnDraw()
     if self.menu:Get("draw.e") then
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.E.range, Utils.COLOR_WHITE)
     end
+    if self.menu:Get("draw.rCircle") then
+        SDK.Renderer:DrawCircle3D(SDK.Renderer:GetMousePos3D(), self.menu:Get("r.circle"), Utils.COLOR_WHITE)
+    end
 end
 
 function Syndra:CastAntigap(canQe, canWe)
     if not canQe and not canWe then return end
-    local antigapTarget = self:GetAntigapTarget(false)
-    if not antigapTarget then return end
     local hasOrb = self.om:GetHeld() and self.om:GetHeld().isOrb
-    if canWe and hasOrb and self:CastWEAntigap(antigapTarget) then
+    if canWe and hasOrb and self:CastWEAntigap() then
         return true
     end
-    if canQe and self:CastQEAntigap(antigapTarget) then
+    if canQe and self:CastQEAntigap() then
         return true
     end
 end
@@ -377,6 +372,7 @@ end
 ---@return SDK_DreamPred_Result | nil
 function Syndra:GetEPushIterPred(enemy, orbPos)
     local eMod = setmetatable({}, { __index = Constants.E })
+    local orbDist = orbPos:Distance(myHero:GetPosition())
     local res = false
     local l = {}
     local pred = nil
@@ -388,9 +384,11 @@ function Syndra:GetEPushIterPred(enemy, orbPos)
             return
         end
         local distToCast = myHero:GetPosition():Distance(pred.targetPosition)
-        local distToCastCeil = math.max(distToCast, Constants.E_ORB_CONTACT_RANGE)
-        eMod.speed = (Constants.E.speed * Constants.E_ORB_CONTACT_RANGE +
-            Constants.E_PUSH_SPEED * (distToCastCeil - Constants.E_ORB_CONTACT_RANGE)) / distToCastCeil
+        if distToCast < orbDist - Constants.E.width / 2 then
+            return
+        end
+        eMod.speed = (Constants.E.speed * orbDist +
+            Constants.E_PUSH_SPEED * (distToCast - orbDist)) / distToCast
         table.insert(l, eMod.speed)
         res = Utils.CheckForSame(l)
     end
@@ -399,24 +397,60 @@ end
 
 function Syndra:CastE()
     local orbPosTable = self.om:GetEHitOrbs()
+    local srcPos = Utils.GetSourcePosition(myHero)
+    local hitPosTable = {}
     if #orbPosTable == 0 then return end
     local targets, preds = self.ts:GetTargets(Constants.E)
     if #targets == 0 then return end
+    local hasOnePrio = false
     for _, orbPos in ipairs(orbPosTable) do
-
+        if orbPos:Distance(myHero:GetPosition()) < Constants.E_ORB_CONTACT_RANGE + 0.01 then
+            local hasTarget, isPrio = false, false
+            local diff = (orbPos - srcPos):Normalized()
+            local seg = LineSegment(srcPos + diff * Constants.E.range, srcPos)
+            for _, target in ipairs(targets) do
+                local pred = self:GetEPushIterPred(target, orbPos)
+                if pred then
+                    local prioDistLimit = pred.realHitChance == 1 and Constants.E.width or Constants.E.width / 2
+                    local dist = seg:DistanceTo(pred.targetPosition)
+                    if dist < prioDistLimit / 2 + target:GetBoundingRadius() and pred.rates["slow"] then
+                        hasTarget, isPrio, hasOnePrio = true, true, true
+                    elseif dist < Constants.E.width / 2 + target:GetBoundingRadius() then
+                        hasTarget = true
+                    end
+                end
+            end
+            if hasTarget then
+                table.insert(hitPosTable, { pos = orbPos, isPrio = isPrio })
+            end
+        end
     end
-    local hitPosTable = {} 
-
+    if not hasOnePrio then return end
+    if #hitPosTable == 0 then return end
+    local res = Geometry.BestAoeConic(myHero:GetPosition(), Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
+        hitPosTable)
+    if not res then
+        print('WTF no EPOS')
+    end
+    if not SDK.Input:Cast(SDK.Enums.SpellSlot.E, res.pos) then return end
+    return true
 end
 
 function Syndra:CastR()
+    local target = self.nem:GetClosestEnemyToMouse()
+    if not target or not Utils.IsValidTarget(target) then return end
+    if SDK.Renderer:GetMousePos3D():Distance(target:GetPosition()) > self.menu:Get("r.circle") then return end
+    if SDK.Input:Cast(SDK.Enums.SpellSlot.R, target) then return true end
+end
+
+function Syndra:CastRExecute()
     local targets = self.ts:Evaluate({
         ValidTarget = function(unit)
             return Utils.IsValidTarget(unit) and unit:GetPosition():Distance(myHero:GetPosition()) < Constants.R_RANGE
         end
     }).Targets
     for _, target in ipairs(targets) do
-        if self.menu:Get("r." .. target:GetCharacterName()) and self:CanExecuteR(target) and
+        if self:CanExecuteR(target) and
             SDK.Input:Cast(SDK.Enums.SpellSlot.R, target) then
             return true
         end
@@ -459,7 +493,6 @@ function Syndra:CastSpells()
     local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.slm:ShouldCast() and (isW1 or isW2)
     local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.slm:ShouldCast()
     local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R) and self.slm:ShouldCast()
-
     local qMana = myHero:GetSpell(SDK.Enums.SpellSlot.Q):GetManaCost()
     local wMana = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetManaCost()
     local eMana = myHero:GetSpell(SDK.Enums.SpellSlot.E):GetManaCost()
@@ -469,18 +502,21 @@ function Syndra:CastSpells()
     local grabTargetTable = self.om:GetGrabTarget()
     local canGrabOrb = grabTargetTable and grabTargetTable.isOrb
     local canWe = hasE and w and e and curMana > wMana + eMana and
-        (isW2 and (self.om:GetHeld() and self.om:GetHeld().isOrb) or canGrabOrb)
+        (isW2 and (self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe) then return end
-    if r and not self.menu:Get("r.disable") and self:CastR() then return end
+    if self.menu:Get("e.e") and e and self:CastE() then return end
+    if r and SDK.Keyboard:IsKeyDown(0x01) and self:CastRExecute() then return end
+    if r and self.menu:Get("r.r") and self:CastR() then return end
     if isCombo then
         if self.menu:Get("e.e") and canE then
             if not evade then
                 if canWe then
-                    if (isW2 and (self:CastWEShort() or self:CastWELong())) or (isW1 and self:CastW1()) then return end
+                    if (isW2 and self.om:GetHeld().isOrb and (self:CastWEShort() or self:CastWELong())) or
+                        (isW1 and self:CastW1()) then return end
                 else
                     if self:CastQEShort() or self:CastQELong() then return end
-    
+
                 end
             end
         else

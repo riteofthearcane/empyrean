@@ -8,7 +8,6 @@ local Utils = require("Common.Utils")
 local Constants = require("Syndra.Constants")
 local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
 
-
 ---@class Empyrean.Syndra.OrbManager
 local OrbManager = require("Common.Utils").Class()
 
@@ -132,7 +131,6 @@ function OrbManager:_GetHeldOrb()
     -- loop through orbs
     for _, orb in pairs(self._orbs) do
         if orb.isInit and orb.obj:AsAI():IsSurpressed() then
-            SDK.PrintChat('ORBMANAGER: orb held')
             return {
                 obj = orb.obj,
                 isOrb = true,
@@ -362,7 +360,7 @@ function OrbManager:_OnDraw()
     end
     if self._held.obj then
         local color = self._held.isOrb and Utils.COLOR_BLUE or Utils.COLOR_RED
-        SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 150, color)
+        SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 75, color)
     end
     for uuid in pairs(self._wBlacklist) do
         local pos = self._orbs[uuid] and self._orbs[uuid].GetPos() or nil
