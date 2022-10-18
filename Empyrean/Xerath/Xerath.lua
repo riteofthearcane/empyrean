@@ -12,6 +12,7 @@ local SpellLockManager = require("Common.SpellLockManager")
 local NearestEnemyTracker = require("Common.NearestEnemyTracker")
 local TapManager = require("Common.TapManager")
 local BuffManager = require("Xerath.BuffManager")
+local LevelTracker = require("Common.LevelTracker")
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
 
 local Xerath = {}
@@ -83,6 +84,9 @@ function Xerath:InitFields()
 
     ---@type Empyrean.Common.NearestEnemyTracker
     self.nem = NearestEnemyTracker()
+
+    ---@type Empyrean.Common.LevelTracker
+    self.lt = LevelTracker()
 
     self.ts =
     DreamTS(
@@ -365,13 +369,14 @@ function Xerath:CastSpells()
     if w and self:CastAntiGapW() then
         return
     end
-    if e and (isCombo and self.menu:Get("e.useCombo") or self.tm:GetSingleTap()) and self:CastE() then
+    if e and (isCombo and self.menu:Get("e.useCombo") or (self.tm:GetSingleTap() and self.lt:ShouldCast())) and
+        self:CastE() then
         return
     end
 
     local slot = Utils.GetSummonerSlot("SummonerFlash")
     local f = slot and myHero:CanUseSpell(slot)
-    if e and f and self.tm:GetDoubleTap() and self:CastEFlash() then
+    if e and f and self.tm:GetDoubleTap() and self.lt:ShouldCast() and self:CastEFlash() then
         return
     end
 

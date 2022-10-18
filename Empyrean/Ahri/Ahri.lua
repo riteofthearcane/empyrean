@@ -13,6 +13,7 @@ local NearestEnemyTracker = require("Common.NearestEnemyTracker")
 local TapManager = require("Common.TapManager")
 local CharmTracker = require("Ahri.CharmTracker")
 local LastAutoTracker = require("Ahri.LastAutoTracker")
+local LevelTracker = require("Common.LevelTracker")
 
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
 
@@ -85,6 +86,8 @@ function Ahri:InitFields()
     self.cm = CharmTracker()
     ---@type Empyrean.Ahri.LastAutoTracker
     self.lat = LastAutoTracker()
+    ---@type Empyrean.Common.LevelTracker
+    self.lt = LevelTracker()
 
     ---@type Empyrean.Common.TapManager
     self.tm = TapManager(
@@ -345,13 +348,13 @@ function Ahri:CastSpells()
         return
     end
 
-    if e and self.tm:GetSingleTap() and self:CastE() then
+    if e and self.tm:GetSingleTap() and self.lt:ShouldCast() and self:CastE() then
         return
     end
 
     local slot = Utils.GetSummonerSlot("SummonerFlash")
     local f = slot and myHero:CanUseSpell(slot)
-    if e and f and self.tm:GetDoubleTap() and self:CastEFlash() then
+    if e and f and self.lt:ShouldCast() and self.tm:GetDoubleTap() and self:CastEFlash() then
         return
     end
 
@@ -369,7 +372,8 @@ function Ahri:CastSpells()
         end
     end
     if q and self:CastQ(function(unit)
-        return (self.menu:Get("q.q") and self.nem:IsTarget(unit)) or (isCombo and self.cm:IsCharm(unit))
+        return (self.menu:Get("q.q") and self.lt:ShouldCast() and self.nem:IsTarget(unit)) or
+            (isCombo and self.cm:IsCharm(unit))
     end) then
         return
     end

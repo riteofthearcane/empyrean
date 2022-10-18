@@ -46,9 +46,10 @@ Module "Syndra.OrbManager" "Empyrean/Syndra/OrbManager.lua"
 Module "Common.Utils" "Empyrean/Common/Utils.lua"
 Module "Common.Geometry" "Empyrean/Common/Geometry.lua"
 Module "Common.SpellLockManager" "Empyrean/Common/SpellLockManager.lua"
-
 Module "Common.NearestEnemyTracker" "Empyrean/Common/NearestEnemyTracker.lua"
 Module "Common.TapManager" "Empyrean/Common/TapManager.lua"
+Module "Common.LevelTracker" "Empyrean/Common/LevelTracker.lua"
+
 
 Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"
 Module "LeagueSDK.Resolver" "LeagueSDK/Resolver.lua"

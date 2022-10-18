@@ -10,6 +10,7 @@ local DreamTS = DreamTSLib.TargetSelectorSdk
 local Utils = require("Common.Utils")
 local SpellLockManager = require("Common.SpellLockManager")
 local NearestEnemyTracker = require("Common.NearestEnemyTracker")
+local LevelTracker = require("Common.LevelTracker")
 local OrbManager = require("Syndra.OrbManager")
 local Constants = require("Syndra.Constants")
 local Geometry = require("Common.Geometry")
@@ -38,6 +39,8 @@ function Syndra:InitFields()
     self.slm = SpellLockManager({
         SyndraW = 0.25,
     })
+    ---@type Empyrean.Common.LevelTracker
+    self.lt = LevelTracker()
 
     self.ts =
     DreamTS(
@@ -57,9 +60,8 @@ function Syndra:InitMenu()
     local wMenu = self.menu:AddSubMenu("w", "W: Force of Will")
     wMenu:AddLabel("Cast W in combo")
     local eMenu = self.menu:AddSubMenu("e", "E: Scatter the Weak")
-    eMenu:AddLabel("Use key without combo to stun using existing balls")
-    eMenu:AddLabel("Use key with combo to stun with QE/WE/E")
-    eMenu:AddKeybind("e", "E Key", string.byte("E"))
+    eMenu:AddKeybind("e1", "QE/WE/E Key", string.byte("E"))
+    eMenu:AddKeybind("e2", "E Key", string.byte("T"))
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
     rMenu:AddLabel("Use LMB to cast R to execute")
     rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
@@ -505,25 +507,24 @@ function Syndra:CastSpells()
         (isW2 and (self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe) then return end
-    if self.menu:Get("e.e") and e and self:CastE() then return end
+    if self.menu:Get("e.e2") and e and self.lt:ShouldCast() and self:CastE() then return end
     if r and SDK.Keyboard:IsKeyDown(0x01) and self:CastRExecute() then return end
-    if r and self.menu:Get("r.r") and self:CastR() then return end
-    if isCombo then
-        if self.menu:Get("e.e") and canE then
-            if not evade then
-                if canWe then
-                    if (isW2 and self.om:GetHeld().isOrb and (self:CastWEShort() or self:CastWELong())) or
-                        (isW1 and self:CastW1()) then return end
-                else
-                    if self:CastQEShort() or self:CastQELong() then return end
+    if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
+    if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
+        if not evade then
+            if canWe then
+                if (isW2 and self.om:GetHeld().isOrb and (self:CastWEShort() or self:CastWELong())) or
+                    (isW1 and self:CastW1()) then return end
+            else
+                if self:CastQEShort() or self:CastQELong() then return end
 
-                end
             end
-        else
-            if w and isW2 and self:CastW2() then return end
-            if w and isW1 and self:HasWPred() and self:CastW1() then return end
-            if q and self:CastQ() then return end
         end
+    end
+    if isCombo and not (self.menu:Get("e.e") and canE) then
+        if w and isW2 and self:CastW2() then return end
+        if w and isW1 and self:HasWPred() and self:CastW1() then return end
+        if q and self:CastQ() then return end
     end
     if isHarass and q and self:CastQ() then return end
 end

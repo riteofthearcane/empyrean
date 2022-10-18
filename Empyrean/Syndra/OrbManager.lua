@@ -38,21 +38,6 @@ function OrbManager:_InitEvents()
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnProcessSpell, function(...) self:_OnProcessSpell(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffGain, function(...) self:_OnBuffGain(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffLost, function(...) self:_OnBuffLost(...) end)
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnNewPath, function(...) self:_OnNewPath(...) end)
-end
-
----@param obj SDK_GameObject
----@param path SDK_Pathing
-function OrbManager:_OnNewPath(obj, path)
-    -- if obj:GetName() == "Seed" and path:GetDashSpeed() == 2000 then
-    --     print("time from cast: " .. SDK.Game:GetTime() - self.qCast)
-    --     for uuid, orb in pairs(self._orbs) do
-    --         if obj:GetNetworkId() == orb.netId and self.eLog[uuid] then
-    --             print("dist on cast: " .. self.eLog[uuid])
-    --             self.eLog[uuid] = nil
-    --         end
-    --     end
-    -- end
 end
 
 ---@param obj SDK_GameObject
@@ -354,23 +339,22 @@ function OrbManager:GetEHitOrbs()
 end
 
 function OrbManager:_OnDraw()
-    for _, orb in pairs(self._orbs) do
-        local color = orb.isInit and Utils.COLOR_BLUE or Utils.COLOR_RED
-        SDK.Renderer:DrawCircle3D(orb.GetPos(), 50, color)
-    end
-    if self._held.obj then
-        local color = self._held.isOrb and Utils.COLOR_BLUE or Utils.COLOR_RED
-        SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 75, color)
-    end
-    for uuid in pairs(self._wBlacklist) do
-        local pos = self._orbs[uuid] and self._orbs[uuid].GetPos() or nil
-        if pos then SDK.Renderer:DrawCircle3D(pos, 100, Utils.COLOR_RED) end
-    end
-    for uuid in pairs(self._eBlacklist) do
-        local pos = self._orbs[uuid] and self._orbs[uuid].GetPos() or nil
-        if pos then SDK.Renderer:DrawCircle3D(pos, 100, Utils.COLOR_BLUE) end
-    end
-
+    -- for _, orb in pairs(self._orbs) do
+    --     local color = orb.isInit and Utils.COLOR_BLUE or Utils.COLOR_RED
+    --     SDK.Renderer:DrawCircle3D(orb.GetPos(), 50, color)
+    -- end
+    -- if self._held.obj then
+    --     local color = self._held.isOrb and Utils.COLOR_BLUE or Utils.COLOR_RED
+    --     SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 75, color)
+    -- end
+    -- for uuid in pairs(self._wBlacklist) do
+    --     local pos = self._orbs[uuid] and self._orbs[uuid].GetPos() or nil
+    --     if pos then SDK.Renderer:DrawCircle3D(pos, 100, Utils.COLOR_RED) end
+    -- end
+    -- for uuid in pairs(self._eBlacklist) do
+    --     local pos = self._orbs[uuid] and self._orbs[uuid].GetPos() or nil
+    --     if pos then SDK.Renderer:DrawCircle3D(pos, 100, Utils.COLOR_BLUE) end
+    -- end
 end
 
 return OrbManager
