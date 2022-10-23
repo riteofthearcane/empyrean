@@ -233,15 +233,24 @@ end
 
 ---@return table{obj: SDK_GameObject, pos:SDK_VECTOR, isOrb: boolean} | nil
 function OrbManager:GetGrabTarget()
-    --TODO: expand this out later so that you can grab targets outside of range using grab range
+    local outOfRangeOrbs = {}
     local lowTime = math.huge
     local lowOrb = nil
     for uuid, orb in pairs(self._orbs) do
-        if orb.isInit and myHero:GetPosition():Distance(orb.GetPos()) < Constants.W_GRAB_RANGE and
-            not self._wBlacklist[uuid] then
-            if orb.endTime < lowTime then
-                lowTime = orb.endTime
-                lowOrb = orb.obj
+        if orb.isInit and not self._wBlacklist[uuid] then
+            local dist = myHero:GetPosition():Distance(orb.GetPos())
+            if dist < Constants.W_GRAB_RANGE then
+                if orb.endTime < lowTime then
+                    lowTime = orb.endTime
+                    lowOrb = orb.obj
+                end
+            elseif dist < Constants.W_GRAB_RANGE + Constants.W_TARGET_RANGE then
+                local diff = orb.GetPos() - myHero:GetPosition()
+                local pos = myHero:GetPosition() + diff:Normalized() * Constants.W_GRAB_RANGE
+                outOfRangeOrbs[uuid] = {
+                    pos = pos,
+                    threshold = dist - Constants.W_GRAB_RANGE,
+                }
             end
         end
     end
@@ -253,16 +262,47 @@ function OrbManager:GetGrabTarget()
         }
     end
 
+    local lowHp = math.huge
+    local lowMinion = nil
     local minions = SDK.ObjectManager:GetEnemyMinions()
     for _, minion in ipairs(minions) do
-        if minion:GetPosition():Distance(myHero:GetPosition()) < Constants.W_GRAB_RANGE and
-            Constants.W_GRAB_OBJS[minion:AsAI():GetCharacterName()] and Utils.IsValidTarget(minion) then
-            return {
-                obj = minion,
-                pos = minion:GetPosition(),
-                isOrb = false,
-            }
+        if Constants.W_GRAB_OBJS[minion:AsAI():GetCharacterName()] and Utils.IsValidTarget(minion) then
+            local dist = myHero:GetPosition():Distance(minion:GetPosition())
+            if dist < Constants.W_GRAB_RANGE then
+                if minion:AsAI():GetHealth() < lowHp then
+                    lowHp = minion:AsAI():GetHealth()
+                    lowMinion = minion
+                end
+            end
+            for uuid, data in pairs(outOfRangeOrbs) do
+                local distToOrb = minion:GetPosition():Distance(self._orbs[uuid]:GetPos())
+                if distToOrb < data.threshold then
+                    outOfRangeOrbs[uuid] = nil
+                end
+            end
         end
+    end
+    local lowPos = nil
+    for uuid, data in pairs(outOfRangeOrbs) do
+        if self._orbs[uuid].endTime < lowTime then
+            lowTime = self._orbs[uuid].endTime
+            lowOrb = self._orbs[uuid].obj
+            lowPos = data.pos
+        end
+    end
+    if lowOrb then
+        return {
+            obj = lowOrb,
+            pos = lowPos,
+            isOrb = true,
+        }
+    end
+    if lowMinion then
+        return {
+            obj = lowMinion,
+            pos = lowMinion:GetPosition(),
+            isOrb = false,
+        }
     end
 end
 

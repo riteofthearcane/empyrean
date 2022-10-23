@@ -94,8 +94,12 @@ end
 
 function Syndra:CastW2()
     local target, pred = self.ts:GetTarget(Constants.W) --TODO: check W blacklist for champs if enemy has been pushed by E
-    if not pred or not pred.rates["slow"] then return end
-    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then return end
+    if not pred or not pred.rates["slow"] then
+        return
+    end
+    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then
+        return
+    end
     pred:Draw()
     return true
     -- TODO: wall checks
@@ -327,6 +331,34 @@ function Syndra:CastWEAntigap()
     end
 end
 
+-- function Syndra:CastWWEAntigap()
+--     local grabTargetTable = self.om:GetGrabTarget()
+--     local canGrabOrb = grabTargetTable and grabTargetTable.isOrb
+--     if not canGrabOrb then return end
+--     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
+--         function(unit, pred) return pred.targetDashing and
+--                 myHero:GetPosition():Distance(pred.targetPosition) < 250 and
+--                 self.menu:Get("antigap." .. unit:GetCharacterName())
+--         end)
+--     if not pred then
+--         return
+--     end
+--     if not self:CanEShort(pred, target) then return end
+--     local wPos = self:GetQEShortQPos(pred.castPosition)
+--     local ePos = self:GetQEAoeEPos(wPos)
+--     if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.W, grabTargetTable.pos) and
+--         SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
+--         pred:Draw()
+--         SDK.PrintChat("WWE ANTIGAP")
+--         SDK.PrintChat("orb to cast: " .. wPos:Distance(grabTargetTable.pos))
+--         SDK.PrintChat("hero to cast: " .. wPos:Distance(myHero:GetPosition()))
+--         SDK.PrintChat("hero to pred: " .. pred.castPosition:Distance(myHero:GetPosition()))
+--         return true
+--     else
+--         print("CAST WE ANTIGAP FAIL")
+--     end
+-- end
+
 ---@param enemy SDK_AIHeroClient | nil
 function Syndra:CastWELong(enemy)
     local target, pred = self.ts:GetTarget(Constants.E, nil,
@@ -352,7 +384,8 @@ function Syndra:OnDraw()
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.Q.range, Utils.COLOR_WHITE)
     end
     if self.menu:Get("draw.e") then
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.E.range, Utils.COLOR_WHITE)
+        local color = self.menu:Get("e.e1") and Utils.COLOR_RED or Utils.COLOR_WHITE
+        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.E.range, color)
     end
     if self.menu:Get("draw.rCircle") then
         SDK.Renderer:DrawCircle3D(SDK.Renderer:GetMousePos3D(), self.menu:Get("r.circle"), Utils.COLOR_WHITE)
@@ -362,9 +395,14 @@ end
 function Syndra:CastAntigap(canQe, canWe)
     if not canQe and not canWe then return end
     local hasOrb = self.om:GetHeld() and self.om:GetHeld().isOrb
+    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:GetHeld() and
+        not self.om:IsSearchingForHeld()
     if canWe and hasOrb and self:CastWEAntigap() then
         return true
     end
+    -- if canWe and isW1 and self:CastWWEAntigap() then
+    --     return true
+    -- end
     if canQe and self:CastQEAntigap() then
         return true
     end
@@ -507,7 +545,7 @@ function Syndra:CastSpells()
         (isW2 and (self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe) then return end
-    if self.menu:Get("e.e2") and e and self.lt:ShouldCast() and self:CastE() then return end
+    if (self.menu:Get("e.e2") or self.menu:Get("e.e1")) and e and self.lt:ShouldCast() and self:CastE() then return end
     if r and SDK.Keyboard:IsKeyDown(0x01) and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
     if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
@@ -521,7 +559,7 @@ function Syndra:CastSpells()
             end
         end
     end
-    if isCombo and not (self.menu:Get("e.e") and canE) then
+    if isCombo and not (self.menu:Get("e.e1") and canE) then
         if w and isW2 and self:CastW2() then return end
         if w and isW1 and self:HasWPred() and self:CastW1() then return end
         if q and self:CastQ() then return end
