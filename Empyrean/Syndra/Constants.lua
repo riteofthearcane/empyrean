@@ -14,7 +14,7 @@ return {
     },
     W = {
         type = "circular",
-        range = 925,
+        range = 950,
         speed = math.huge,
         delay = 0.75,
         radius = 220,

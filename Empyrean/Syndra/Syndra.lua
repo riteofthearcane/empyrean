@@ -16,6 +16,7 @@ local Constants = require("Syndra.Constants")
 local Geometry = require("Common.Geometry")
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
 local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
+local ModernUOL = SDK:GetPlatform() == "FF15" and require("ModernUOL") or nil
 
 local Syndra = {}
 
@@ -59,6 +60,7 @@ function Syndra:InitMenu()
     qMenu:AddLabel("Cast Q in combo or harass")
     local wMenu = self.menu:AddSubMenu("w", "W: Force of Will")
     wMenu:AddLabel("Cast W in combo")
+    wMenu:AddLabel("Cast W1 on unkillable targets in lasthit")  
     local eMenu = self.menu:AddSubMenu("e", "E: Scatter the Weak")
     eMenu:AddKeybind("e1", "QE/WE/E Key", string.byte("E"))
     eMenu:AddKeybind("e2", "E Key", string.byte("T"))
@@ -75,7 +77,8 @@ function Syndra:InitMenu()
     local drawMenu = self.menu:AddSubMenu("draw", "Draw")
     drawMenu:AddCheckbox("q", "Draw Q range", true)
     drawMenu:AddCheckbox("e", "Draw E range", true)
-    drawMenu:AddCheckbox("rCircle", "Draw R aim circle", true)
+    drawMenu:AddCheckbox("rCircle", "Draw R aim circle", false)
+    drawMenu:AddCheckbox("rKillable", "Draw R killable", true)
     self.menu:Render()
 end
 
@@ -92,15 +95,39 @@ function Syndra:CastQ()
     return true
 end
 
+---@param enemy SDK_AIHeroClient
+---@return SDK_DreamPred_Result | nil
+function Syndra:GetW2IterPred(enemy)
+    local wMod = setmetatable({}, { __index = Constants.W })
+    local res = false
+    local l = {}
+    local pred = nil
+    while not res do
+        _, pred = self.ts:GetTarget(wMod, nil,
+            function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
+        if not pred then
+            SDK.PrintChat("SYNDRA: Iterpred W2 Long fail")
+            return
+        end
+        local distToCast = myHero:GetPosition():Distance(pred.targetPosition)
+        wMod.speed=  200 
+        table.insert(l, eMod.speed)
+        res = Utils.CheckForSame(l)
+    end
+    return pred
+end
+
 function Syndra:CastW2()
     local target, pred = self.ts:GetTarget(Constants.W) --TODO: check W blacklist for champs if enemy has been pushed by E
     if not pred or not pred.rates["slow"] then
         return
     end
-    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then
+    local iterPred = self:GetQELongIterPred(target)
+    if not iterPred then return end
+    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, iterPred.castPosition) then
         return
     end
-    pred:Draw()
+    iterPred:Draw()
     return true
     -- TODO: wall checks
 end
@@ -140,7 +167,7 @@ function Syndra:GetQELongIterPred(enemy)
         _, pred = self.ts:GetTarget(eMod, nil,
             function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
         if not pred then
-            print("SYNDRA: Iterpred QE Long fail")
+            SDK.PrintChat("SYNDRA: Iterpred QE Long fail")
             return
         end
         local distToCast = myHero:GetPosition():Distance(pred.targetPosition)
@@ -220,7 +247,7 @@ function Syndra:GetQEShortIterPred(enemy)
         _, pred = self.ts:GetTarget(eMod, nil,
             function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
         if not pred then
-            print("SYNDRA: Iterpred QE Short fail with width - " .. eMod.width)
+            SDK.PrintChat("SYNDRA: Iterpred QE Short fail with width - " .. eMod.width)
             return
         end
         local boundingRadius = enemy:GetBoundingRadius()
@@ -420,7 +447,7 @@ function Syndra:GetEPushIterPred(enemy, orbPos)
         _, pred = self.ts:GetTarget(eMod, nil,
             function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
         if not pred then
-            print("SYNDRA: Iterpred E Push fail")
+            SDK.PrintChat("SYNDRA: Iterpred E Push fail")
             return
         end
         local distToCast = myHero:GetPosition():Distance(pred.targetPosition)
@@ -518,6 +545,18 @@ function Syndra:GetPassiveStacks()
     return buff and buff:GetStacks() or 0
 end
 
+function Syndra:LastHitUnkillableW1()
+    if not ModernUOL then return end
+    local range = myHero:AsAI():GetAttackRange() + myHero:GetBoundingRadius() + 55
+    local target = ModernUOL:GetSpellFarmTarget({ range = range, speed = math.huge, delay = 0, type = "AD" }, math.huge,
+        true)
+    if not target then return end
+    local targetSdk = SDK.Types.AIBaseClient(target)
+    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, targetSdk:GetPosition()) then return end
+    SDK.PrintChat("w1 lasthit")
+    return true
+end
+
 function Syndra:OnUpdate()
     self:CastSpells()
 end
@@ -526,6 +565,7 @@ function Syndra:CastSpells()
     local evade = _G.DreamEvade and _G.DreamEvade.HasPath()
     local isCombo = SDK.Libs.Orbwalker:IsComboMode()
     local isHarass = SDK.Libs.Orbwalker:IsHarassMode()
+    local isLasthit = SDK.Libs.Orbwalker:IsLastHitMode()
     local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast()
     local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:GetHeld() and
         not self.om:IsSearchingForHeld()
@@ -565,6 +605,7 @@ function Syndra:CastSpells()
         if q and self:CastQ() then return end
     end
     if isHarass and q and self:CastQ() then return end
+    if isLasthit and w and isW1 and SDK.GetPlatform() == "FF15" and self:LastHitUnkillableW1() then return end
 end
 
 Syndra:__init()
