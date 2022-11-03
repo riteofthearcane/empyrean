@@ -10,6 +10,7 @@ local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
 
 ---@class Empyrean.Syndra.OrbManager
 local OrbManager = require("Common.Utils").Class()
+local Debug = require("Common.Debug")
 
 
 function OrbManager:_init()
@@ -38,6 +39,20 @@ function OrbManager:_InitEvents()
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnProcessSpell, function(...) self:_OnProcessSpell(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffGain, function(...) self:_OnBuffGain(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffLost, function(...) self:_OnBuffLost(...) end)
+    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnNewPath, function(...) self:_OnNewPath(...) end)
+end
+
+function OrbManager:_OnNewPath(source, pathing)
+    -- if source:GetName() == "Seed" then
+    --     local speed = pathing:GetDashSpeed()
+    --     if speed < 400 or speed == 1200 then return end
+    --     SDK.PrintChat("ONNEWPATH SPEED: " .. speed)
+    --     SDK.PrintChat("ONNEWPATH DIST: " .. pathing:GetEndPos():Distance(pathing:GetStartPos()))
+    --     local startPos = pathing:GetStartPos()
+    --     local endPos = pathing:GetEndPos()
+    --     Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(startPos, 50, Utils.COLOR_BLUE) end, 5)
+    --     Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(endPos, 50, Utils.COLOR_BLUE) end, 5)
+    -- end
 end
 
 ---@param obj SDK_GameObject
@@ -379,10 +394,18 @@ function OrbManager:GetEHitOrbs()
 end
 
 function OrbManager:_OnDraw()
-    -- for _, orb in pairs(self._orbs) do
-    --     local color = orb.isInit and Utils.COLOR_BLUE or Utils.COLOR_RED
-    --     SDK.Renderer:DrawCircle3D(orb.GetPos(), 50, color)
-    -- end
+    for _, orb in pairs(self._orbs) do
+        -- local color = orb.isInit and Utils.COLOR_BLUE or Utils.COLOR_RED
+        -- SDK.Renderer:DrawCircle3D(orb.GetPos(), 50, color)
+        -- if orb.isInit and orb.obj:AsAI():GetPathing():GetWaypointCount() >= 2 then
+        --     local count = orb.obj:AsAI():GetPathing():GetWaypointCount()
+        --     for i = 1, count - 1 do
+        --         local pos1 = orb.obj:AsAI():GetPathing():GetWaypoint(i)
+        --         local pos2 = orb.obj:AsAI():GetPathing():GetWaypoint(i + 1)
+        --         SDK.Renderer:DrawLine3D(pos1, pos2, Utils.COLOR_BLUE)
+        --     end
+        -- end
+    end
     -- if self._held.obj then
     --     local color = self._held.isOrb and Utils.COLOR_BLUE or Utils.COLOR_RED
     --     SDK.Renderer:DrawCircle3D(self._held.obj:GetPosition(), 75, color)

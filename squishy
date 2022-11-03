@@ -49,6 +49,7 @@ Module "Common.SpellLockManager" "Empyrean/Common/SpellLockManager.lua"
 Module "Common.NearestEnemyTracker" "Empyrean/Common/NearestEnemyTracker.lua"
 Module "Common.TapManager" "Empyrean/Common/TapManager.lua"
 Module "Common.LevelTracker" "Empyrean/Common/LevelTracker.lua"
+Module "Common.Debug" "Empyrean/Common/Debug.lua"
 
 
 Module "LeagueSDK.LeagueSDK" "LeagueSDK/LeagueSDK.lua"

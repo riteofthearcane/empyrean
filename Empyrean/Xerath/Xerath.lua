@@ -200,7 +200,8 @@ function Xerath:CastQ1()
 end
 
 function Xerath:CastQ2()
-    local target, pred = self.ts:GetTarget(self.q)
+    local target, pred = self.ts:GetTarget(self.q, nil,
+        function(unit) return myHero:GetPosition():Distance(unit:GetPosition()) > self.q.range end)
     if not pred or not pred.rates["slow"] then
         return
     end
@@ -216,6 +217,11 @@ function Xerath:HasWPred()
             -- anti feez pred
             return Utils.IsValidCircularPred(pred, self.w)
         end)
+    return pred ~= nil
+end
+
+function Xerath:HasEPred()
+    local target, pred = self.ts:GetTarget(self.e)
     return pred ~= nil
 end
 
@@ -384,7 +390,7 @@ function Xerath:CastSpells()
         if w and self:CastW() then
             return
         end
-        if (not w or not self:HasWPred()) and q and self:CastQ1() then
+        if ((not w or not self:HasWPred()) and (not e or not self:HasEPred())) and q and self:CastQ1() then
             return
         end
     end

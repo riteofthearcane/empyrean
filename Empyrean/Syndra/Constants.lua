@@ -18,6 +18,7 @@ return {
         speed = math.huge,
         delay = 0.75,
         radius = 220,
+        useHeroSource = true,
     },
     E = {
         type = "linear",
@@ -34,7 +35,7 @@ return {
     R_RANGE = 675,
     ORB_LIFETIME = 6,
     W_GRAB_RANGE = 925,
-    W_TARGET_RANGE = 500,
+    W_TARGET_RANGE = 350,
     W_GRAB_OBJS = {
         ["SRU_ChaosMinionSuper"] = true,
         ["SRU_OrderMinionSuper"] = true,
