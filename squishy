@@ -42,6 +42,8 @@ Module "Syndra.Main" "Empyrean/Syndra/Syndra.lua"
 Module "Syndra.Constants" "Empyrean/Syndra/Constants.lua"
 Module "Syndra.OrbManager" "Empyrean/Syndra/OrbManager.lua"
 
+Module "Taliyah.Main" "Empyrean/Taliyah/Taliyah.lua"
+Module "Taliyah.QTracker" "Empyrean/Taliyah/QTracker.lua"
 
 Module "Common.Utils" "Empyrean/Common/Utils.lua"
 Module "Common.Geometry" "Empyrean/Common/Geometry.lua"

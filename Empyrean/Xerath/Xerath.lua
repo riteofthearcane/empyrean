@@ -147,6 +147,8 @@ function Xerath:OnDraw()
     if not self.bm:IsQActive() and not self.bm:IsRActive() and self.menu:Get("draw.we") then
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.w.range, Utils.COLOR_WHITE)
     end
+    local level = myHero:GetSpell(SDK.Enums.SpellSlot.R):GetLevel()
+    if level == 0 then return end
     if self.menu:Get("draw.r") then
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), self.r.range, Utils.COLOR_WHITE)
     end
@@ -201,7 +203,7 @@ end
 
 function Xerath:CastQ2()
     local target, pred = self.ts:GetTarget(self.q, nil,
-        function(unit) return myHero:GetPosition():Distance(unit:GetPosition()) > self.q.range end)
+        function(unit) return myHero:GetPosition():Distance(unit:GetPosition()) < self.q.range end)
     if not pred or not pred.rates["slow"] then
         return
     end

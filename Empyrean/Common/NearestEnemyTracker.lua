@@ -41,4 +41,11 @@ function NearestEnemyTracker:IsTarget(enemy)
     return enemy:GetNetworkId() == self.target
 end
 
+function NearestEnemyTracker:GetTarget()
+    if not self.target then
+        return nil
+    end
+    return SDK.ObjectManager:GetObjectFromNetworkId(self.target)
+end
+
 return NearestEnemyTracker

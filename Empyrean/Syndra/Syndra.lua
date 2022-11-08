@@ -67,6 +67,7 @@ function Syndra:InitMenu()
     eMenu:AddKeybind("e2", "E Key", string.byte("T"))
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
     rMenu:AddLabel("Use LMB to cast R to execute")
+    rMenu:AddKeybind("rExecute", "Use key of choice to cast R to execute", string.byte("A"))
     rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
     rMenu:AddSlider("circle", "R aim circle radius", { min = 100, max = 500, default = 200, step = 100 })
     local antigapMenu = self.menu:AddSubMenu("antigap", "Anti-Gap")
@@ -229,10 +230,11 @@ function Syndra:HasWPred()
     return pred ~= nil
 end
 
----@param enemy SDK_AIHeroClient | nil
-function Syndra:CastQELong(enemy)
+function Syndra:CastQELong()
+    local closest = self.nem:GetTarget()
+    if not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil,
-        function(unit) return not enemy or enemy:GetNetworkId() == unit:GetNetworkId() end)
+        function(unit) return closest:GetNetworkId() == unit:GetNetworkId() end)
     if not pred or not pred.rates["slow"] or
         myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -309,7 +311,7 @@ function Syndra:CanEShort(pred, target)
 end
 
 function Syndra:CastQEShort()
-    local target, pred = self.ts:GetTarget(Constants.E)
+    local target, pred = self.ts:GetTarget(Constants.E, nil, function(unit) return self.nem:IsTarget(unit) end)
     if not pred or not pred.rates["slow"] or
         myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -414,10 +416,11 @@ end
 --     end
 -- end
 
----@param enemy SDK_AIHeroClient | nil
-function Syndra:CastWELong(enemy)
+function Syndra:CastWELong()
+    local closest = self.nem:GetTarget()
+    if not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil,
-        function(unit) return not enemy or enemy:GetNetworkId() == unit:GetNetworkId() end)
+        function(unit) return closest:GetNetworkId() == unit:GetNetworkId() end)
     if not pred or not pred.rates["slow"] or
         myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -614,12 +617,13 @@ function Syndra:CastSpells()
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe) then return end
     if (self.menu:Get("e.e2") or self.menu:Get("e.e1")) and e and self.lt:ShouldCast() and self:CastE() then return end
-    if r and SDK.Keyboard:IsKeyDown(0x01) and self:CastRExecute() then return end
+    if r and (SDK.Keyboard:IsKeyDown(0x01) or self.menu:Get("r.rExecute")) and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
     if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
         if not evade then
             if canWe then
-                if (isW2 and self.om:GetHeld().isOrb and (self:CastWEShort() or self:CastWELong())) or
+                if (isW2 and self.om:GetHeld().isOrb and (self:CastWEShort() or self:CastWELong()))
+                    or
                     (isW1 and self:CastW1()) then return end
             else
                 if self:CastQEShort() or self:CastQELong() then return end

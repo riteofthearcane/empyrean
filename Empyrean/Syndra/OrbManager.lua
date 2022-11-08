@@ -206,6 +206,7 @@ function OrbManager:_OnBuffLost(obj, buff)
             obj = nil,
             isOrb = false,
         }
+        self._queueHeldSearch = false
     end
 end
 

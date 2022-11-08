@@ -8,6 +8,7 @@ local SUPPORTED_CHAMPIONS = {
     ["Xerath"] = true,
     ["Syndra"] = true,
     ["Ahri"] = true,
+    ["Taliyah"] = true, 
 }
 
 
