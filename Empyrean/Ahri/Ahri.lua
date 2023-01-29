@@ -219,7 +219,7 @@ function Ahri:CastAntiGapE()
     if not pred then
         return
     end
-    if SDK.Input:CastFast(SDK.Enums.SpellSlot.E, pred.castPosition) then
+    if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, pred.castPosition) then
         pred:Draw()
         return true
     end
@@ -252,7 +252,7 @@ function Ahri:CastAntiGapEf()
         return
     end
     local slot = self:GetEfSlot()
-    if SDK.Input:CastFast(slot, pred.castPosition) then
+    if SDK.Input:ForceCastFast(slot, pred.castPosition) then
         pred:Draw()
         return true
     end

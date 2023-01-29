@@ -65,6 +65,7 @@ function Syndra:InitMenu()
     local eMenu = self.menu:AddSubMenu("e", "E: Scatter the Weak")
     eMenu:AddKeybind("e1", "QE/WE/E Key", string.byte("E"))
     eMenu:AddKeybind("e2", "E Key", string.byte("T"))
+    eMenu:AddLabel("Use LMB to cast with mouse targeting")
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
     rMenu:AddLabel("Use LMB to cast R to execute")
     rMenu:AddKeybind("rExecute", "Use key of choice to cast R to execute", string.byte("A"))
@@ -74,7 +75,10 @@ function Syndra:InitMenu()
     antigapMenu:AddLabel("Cast QE/WE on anti-gap")
     for _, enemy in pairs(enemies) do
         local charName = enemy:GetCharacterName()
-        antigapMenu:AddCheckbox(charName, charName, true)
+        local charMenu = antigapMenu:AddSubMenu(charName, charName)
+        charMenu:AddCheckbox("stun", "QE/WE Stun", true)
+        charMenu:AddCheckbox("push", "E Push", false)
+
     end
     local drawMenu = self.menu:AddSubMenu("draw", "Draw")
     drawMenu:AddCheckbox("q", "Draw Q range", true)
@@ -232,9 +236,9 @@ end
 
 function Syndra:CastQELong()
     local closest = self.nem:GetTarget()
-    if not closest then return end
+    if SDK.Keyboard:IsKeyDown(0x01) and not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil,
-        function(unit) return closest:GetNetworkId() == unit:GetNetworkId() end)
+        function(unit) return not SDK.Keyboard:IsKeyDown(0x01) or closest:GetNetworkId() == unit:GetNetworkId() end)
     if not pred or not pred.rates["slow"] or
         myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -311,8 +315,9 @@ function Syndra:CanEShort(pred, target)
 end
 
 function Syndra:CastQEShort()
-    local target, pred = self.ts:GetTarget(Constants.E, nil, function(unit) return self.nem:IsTarget(unit) end)
-    if not pred or not pred.rates["slow"] or
+    local target, pred = self.ts:GetTarget(Constants.E, nil,
+        function(unit) return not SDK.Keyboard:IsKeyDown(0x01) or self.nem:IsTarget(unit) end)
+    if not pred or not pred.rates["short"] or
         myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
@@ -333,7 +338,7 @@ function Syndra:CastQEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
         function(unit, pred) return pred.targetDashing and
                 myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
-                self.menu:Get("antigap." .. unit:GetCharacterName())
+                self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
         end)
     if not pred then
         return
@@ -372,7 +377,7 @@ function Syndra:CastWEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
         function(unit, pred) return pred.targetDashing and
                 myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
-                self.menu:Get("antigap." .. unit:GetCharacterName())
+                self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
         end)
     if not pred then
         return
@@ -418,9 +423,9 @@ end
 
 function Syndra:CastWELong()
     local closest = self.nem:GetTarget()
-    if not closest then return end
+    if SDK.Keyboard:IsKeyDown(0x01) and not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil,
-        function(unit) return closest:GetNetworkId() == unit:GetNetworkId() end)
+        function(unit) return not SDK.Keyboard:IsKeyDown(0x01) or closest:GetNetworkId() == unit:GetNetworkId() end)
     if not pred or not pred.rates["slow"] or
         myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -434,6 +439,25 @@ function Syndra:CastWELong()
         return true
     else
         print("SYNDRA: Cast WELong fail")
+    end
+end
+
+function Syndra:CastEAntigap()
+    local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
+        function(unit, pred) return pred.targetDashing and
+                myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.menu:Get("antigap." .. unit:GetCharacterName() .. ".push")
+        end)
+    if not pred then
+        return
+    end
+    local qPos = self:GetQEShortQPos(pred.castPosition)
+    local ePos = self:GetQEAoeEPos(qPos)
+    if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
+        pred:Draw()
+        return true
+    else
+        print("CAST E ANTIGAP FAIL")
     end
 end
 
@@ -452,8 +476,9 @@ function Syndra:OnDraw()
     end
 end
 
-function Syndra:CastAntigap(canQe, canWe)
-    if not canQe and not canWe then return end
+function Syndra:CastAntigap(canQe, canWe, e)
+
+    if not canQe and not canWe and not e then return end
     local hasOrb = self.om:GetHeld() and self.om:GetHeld().isOrb
     local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:GetHeld() and
         not self.om:IsSearchingForHeld()
@@ -465,6 +490,9 @@ function Syndra:CastAntigap(canQe, canWe)
     -- end
     if canQe and self:CastQEAntigap() then
         return true
+    end
+    if e and self:CastEAntigap() then
+        return
     end
 end
 
@@ -615,7 +643,7 @@ function Syndra:CastSpells()
     local canWe = hasE and w and e and curMana > wMana + eMana and
         (isW2 and (self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
-    if self:CastAntigap(canQe, canWe) then return end
+    if self:CastAntigap(canQe, canWe, e) then return end
     if (self.menu:Get("e.e2") or self.menu:Get("e.e1")) and e and self.lt:ShouldCast() and self:CastE() then return end
     if r and (SDK.Keyboard:IsKeyDown(0x01) or self.menu:Get("r.rExecute")) and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
