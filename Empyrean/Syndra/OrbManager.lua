@@ -262,7 +262,7 @@ function OrbManager:GetGrabTarget()
                 end
             elseif dist < Constants.W_GRAB_RANGE + Constants.W_TARGET_RANGE then
                 local diff = orb.GetPos() - myHero:GetPosition()
-                local pos = myHero:GetPosition() + diff:Normalized() * Constants.W_GRAB_RANGE
+                local pos = myHero:GetPosition() + diff:Normalized() * (Constants.W_GRAB_RANGE - 25)
                 outOfRangeOrbs[uuid] = {
                     pos = pos,
                     threshold = dist - Constants.W_GRAB_RANGE,
@@ -278,20 +278,16 @@ function OrbManager:GetGrabTarget()
         }
     end
 
-    local lowHp = math.huge
     local lowMinion = nil
     local minions = SDK.ObjectManager:GetEnemyMinions()
     for _, minion in ipairs(minions) do
         if Constants.W_GRAB_OBJS[minion:AsAI():GetCharacterName()] and Utils.IsValidTarget(minion) then
             local dist = myHero:GetPosition():Distance(minion:GetPosition())
             if dist < Constants.W_GRAB_RANGE then
-                if minion:AsAI():GetHealth() < lowHp then
-                    lowHp = minion:AsAI():GetHealth()
-                    lowMinion = minion
-                end
+                lowMinion = minion
             end
             for uuid, data in pairs(outOfRangeOrbs) do
-                local distToOrb = minion:GetPosition():Distance(self._orbs[uuid]:GetPos())
+                local distToOrb = minion:GetPosition():Distance(data.pos)
                 if distToOrb < data.threshold then
                     outOfRangeOrbs[uuid] = nil
                 end

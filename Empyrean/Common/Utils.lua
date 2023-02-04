@@ -124,7 +124,7 @@ end
 
 ---@return boolean
 function Utils.IsValidCircularPred(pred, spell)
-    return pred and myHero:GetPosition():Distance(pred.targetPosition) < spell.range
+    return pred and (myHero:GetPosition():Distance(pred.targetPosition) < spell.range or pred.realHitChance == 1)
 end
 
 function Utils.Uuid()

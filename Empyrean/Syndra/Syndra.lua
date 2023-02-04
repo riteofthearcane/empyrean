@@ -51,6 +51,14 @@ function Syndra:InitFields()
             Damage = DreamTS.Damages.AP
         }
     )
+    -- last tick r key state (whether key was pressed or not)
+    self.prevToggle = false
+    -- last tick r.toggle state (whether to use toggle or key)
+    self.prevMenuToggle = false
+    -- r toggle state
+    self.toggleState = false
+
+    self.debugText = ""
 end
 
 function Syndra:InitMenu()
@@ -69,6 +77,8 @@ function Syndra:InitMenu()
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
     rMenu:AddLabel("Use LMB to cast R to execute")
     rMenu:AddKeybind("rExecute", "Use key of choice to cast R to execute", string.byte("A"))
+    rMenu:AddCheckbox("toggle", "Use LMB/above key as toggle", false)
+    rMenu:AddLabel("If above is toggle, will turn off after r usage")
     rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
     rMenu:AddSlider("circle", "R aim circle radius", { min = 100, max = 500, default = 200, step = 100 })
     local antigapMenu = self.menu:AddSubMenu("antigap", "Anti-Gap")
@@ -84,7 +94,7 @@ function Syndra:InitMenu()
     drawMenu:AddCheckbox("q", "Draw Q range", true)
     drawMenu:AddCheckbox("e", "Draw E range", true)
     drawMenu:AddCheckbox("rCircle", "Draw R aim circle", false)
-    drawMenu:AddCheckbox("rKillable", "Draw R killable", true)
+    drawMenu:AddCheckbox("rUsage", "Draw R usage", true)
     self.menu:Render()
 end
 
@@ -168,9 +178,13 @@ end
 function Syndra:CastW1()
     local grabTargetTable = self.om:GetGrabTarget()
     if not grabTargetTable then
+        self.debugText = self.debugText .. "No grab target\n"
         return
     end
-    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, grabTargetTable.pos) then return end
+    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, grabTargetTable.pos) then
+        self.debugText = self.debugText .. "Failed w1 cast\n"
+        return
+    end
     return true
 end
 
@@ -235,6 +249,7 @@ function Syndra:HasWPred()
 end
 
 function Syndra:CastQELong()
+    self.debugText = self.debugText .. "in QE long\n"
     local closest = self.nem:GetTarget()
     if SDK.Keyboard:IsKeyDown(0x01) and not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil,
@@ -243,6 +258,7 @@ function Syndra:CastQELong()
         myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
+    self.debugText = self.debugText .. "passed first check in QE long\n"
     local iterPred = self:GetQELongIterPred(target)
     if not iterPred then return end
     local qPos = self:GetQELongQPos(iterPred.castPosition)
@@ -317,10 +333,22 @@ end
 function Syndra:CastQEShort()
     local target, pred = self.ts:GetTarget(Constants.E, nil,
         function(unit) return not SDK.Keyboard:IsKeyDown(0x01) or self.nem:IsTarget(unit) end)
-    if not pred or not pred.rates["short"] or
+    self.debugText = self.debugText .. "looking at QE short\n"
+    if not pred then
+        self.debugText = self.debugText .. "no pred\n"
+    end
+    if not pred.rates["slow"] then
+        self.debugText = self.debugText .. "no short rate\n"
+    end
+    if not pred.rates["slow"] or myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+        self.debugText = self.debugText .. "no short rate or too far\n"
+    end
+    if not pred or not pred.rates["slow"] or
         myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
+    self.debugText = self.debugText .. "passed first check in QE short\n"
+
     local iterPred = self:GetQEShortIterPred(target)
     if not iterPred then return end
     if not self:CanEShort(iterPred, target) then return end
@@ -462,17 +490,19 @@ function Syndra:CastEAntigap()
 end
 
 function Syndra:OnDraw()
+    SDK.Renderer:DrawText(self.debugText, 20, SDK.Renderer:WorldToScreen(myHero:GetPosition(), 0), Utils.COLOR_WHITE)
+    local color = self.toggleState and Utils.COLOR_GREEN or Utils.COLOR_WHITE
     if self.menu:Get("draw.q") then
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.Q.range, Utils.COLOR_WHITE)
+        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.Q.range, color)
     end
     if self.menu:Get("draw.e") then
-        local color = self.menu:Get("e.e1") and Utils.COLOR_RED or Utils.COLOR_WHITE
+        -- local color = self.menu:Get("e.e1") and Utils.COLOR_RED or Utils.COLOR_WHITE
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.E.range, color)
         SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.W.range + Constants.W_TARGET_RANGE, color)
 
     end
     if self.menu:Get("draw.rCircle") then
-        SDK.Renderer:DrawCircle3D(SDK.Renderer:GetMousePos3D(), self.menu:Get("r.circle"), Utils.COLOR_WHITE)
+        SDK.Renderer:DrawCircle3D(SDK.Renderer:GetMousePos3D(), self.menu:Get("r.circle"), color)
     end
 end
 
@@ -600,6 +630,29 @@ function Syndra:IsRUpgraded()
     return self:GetPassiveStacks() >= 100
 end
 
+function Syndra:ComputeRTriggerState()
+    local rToggleState = self.menu:Get("r.toggle")
+    local rKeyState = self.menu:Get("r.rExecute") or SDK.Keyboard:IsKeyDown(0x01)
+    local res = false
+
+    if rToggleState ~= self.prevMenuToggle then
+        self.toggleState = false
+    else
+        if not rToggleState then
+            res = rKeyState
+            self.toggleState = rKeyState
+        else
+            if rKeyState and not self.prevToggle then
+                self.toggleState = not self.toggleState
+            end
+            res = self.toggleState
+        end
+    end
+    self.prevMenuToggle = rToggleState
+    self.prevToggle = rKeyState
+    return res
+end
+
 function Syndra:GetPassiveStacks()
     local buff = myHero:GetBuff("syndrapassivestacks")
     return buff and buff:GetStacks() or 0
@@ -617,11 +670,13 @@ function Syndra:LastHitUnkillableW1()
 end
 
 function Syndra:OnUpdate()
+    self.debugText = ""
     self:CastSpells()
 end
 
 function Syndra:CastSpells()
     local evade = _G.DreamEvade and _G.DreamEvade.HasPath()
+    local useR = self:ComputeRTriggerState()
     local isCombo = SDK.Libs.Orbwalker:IsComboMode()
     local isHarass = SDK.Libs.Orbwalker:IsHarassMode()
     local isLasthit = SDK.Libs.Orbwalker:IsLastHitMode()
@@ -637,30 +692,43 @@ function Syndra:CastSpells()
     local eMana = myHero:GetSpell(SDK.Enums.SpellSlot.E):GetManaCost()
     local curMana = myHero:AsAttackableUnit():GetMana()
     local hasE = self:HasEPred()
+    if self.menu:Get("e.e1") then
+        self.debugText = self.debugText .. "holding E key\n"
+    end
     local canQe = hasE and q and e and curMana > qMana + eMana
     local grabTargetTable = self.om:GetGrabTarget()
     local canGrabOrb = grabTargetTable and grabTargetTable.isOrb
     local canWe = hasE and w and e and curMana > wMana + eMana and
-        (isW2 and (self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
+        ((isW2 and self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe, e) then return end
+
     if (self.menu:Get("e.e2") or self.menu:Get("e.e1")) and e and self.lt:ShouldCast() and self:CastE() then return end
-    if r and (SDK.Keyboard:IsKeyDown(0x01) or self.menu:Get("r.rExecute")) and self:CastRExecute() then return end
+    if r and useR and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
     if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
         if not evade then
             if canWe then
-                if (isW2 and self.om:GetHeld().isOrb and (self:CastWEShort() or self:CastWELong()))
+                self.debugText = self.debugText .. "looking at WE\n"
+                if (isW2 and (self:CastWEShort() or self:CastWELong()))
                     or
                     (isW1 and self:CastW1()) then return end
             else
+                self.debugText = self.debugText .. "looking at QE\n"
                 if self:CastQEShort() or self:CastQELong() then return end
 
             end
         end
     end
+    self.debugText = self.debugText .. " reached combo\n"
     if isCombo and not (self.menu:Get("e.e1") and canE) then
         if w and isW2 and self:CastW2Old() then return end
+        self.debugText = self.debugText .. " reached w1\n"
+        self.debugText = self.debugText ..
+            " w:" ..
+            tostring(w) ..
+            " isW1:" ..
+            tostring(isW1) .. " hasWPred:" .. tostring(self:HasWPred()) .. "\n"
         if w and isW1 and self:HasWPred() and self:CastW1() then return end
         if q and self:CastQ() then return end
     end
