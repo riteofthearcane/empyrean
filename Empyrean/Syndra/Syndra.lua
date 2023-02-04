@@ -58,6 +58,8 @@ function Syndra:InitFields()
     -- r toggle state
     self.toggleState = false
 
+    self.playerPos = myHero:GetPosition()
+
     self.debugText = ""
 end
 
@@ -195,7 +197,7 @@ function Syndra:GetQEAoeEPos(qPos)
     for _, orbPos in pairs(orbPosTable) do
         table.insert(posTable, { pos = orbPos, isPrio = false })
     end
-    local res = Geometry.BestAoeConic(myHero:GetPosition(), Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
+    local res = Geometry.BestAoeConic(self.playerPos, Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
         posTable)
     if not res then
         print('WTF no EPOS')
@@ -217,7 +219,7 @@ function Syndra:GetQELongIterPred(enemy)
             SDK.PrintChat("SYNDRA: Iterpred QE Long fail")
             return
         end
-        local distToCast = myHero:GetPosition():Distance(pred.targetPosition)
+        local distToCast = self.playerPos:Distance(pred.targetPosition)
         local distToCastCeil = math.max(distToCast, Constants.E_ORB_CONTACT_RANGE)
         eMod.speed = (Constants.E.speed * Constants.E_ORB_CONTACT_RANGE +
             Constants.E_PUSH_SPEED * (distToCastCeil - Constants.E_ORB_CONTACT_RANGE)) / distToCastCeil
@@ -230,8 +232,8 @@ end
 ---@param pos SDK_VECTOR
 ---@return SDK_VECTOR
 function Syndra:GetQELongQPos(pos)
-    local diff = (pos - myHero:GetPosition()):Normalized()
-    return myHero:GetPosition() + diff * Constants.E_ORB_CONTACT_RANGE
+    local diff = (pos - self.playerPos):Normalized()
+    return self.playerPos + diff * Constants.E_ORB_CONTACT_RANGE
 end
 
 function Syndra:HasEPred()
@@ -255,7 +257,7 @@ function Syndra:CastQELong()
     local target, pred = self.ts:GetTarget(Constants.E, nil,
         function(unit) return not SDK.Keyboard:IsKeyDown(0x01) or closest:GetNetworkId() == unit:GetNetworkId() end)
     if not pred or not pred.rates["slow"] or
-        myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
+        self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
     self.debugText = self.debugText .. "passed first check in QE long\n"
@@ -271,63 +273,28 @@ function Syndra:CastQELong()
     end
 end
 
----@param pos SDK_VECTOR
----@return SDK_VECTOR
-function Syndra:GetQEShortQPos(pos)
-    local dist = pos:Distance(myHero:GetPosition())
-    local pushDist = self:GetEPushDist(dist)
-    local diff = (pos - myHero:GetPosition()):Normalized()
-    return myHero:GetPosition() + diff * pushDist
-end
-
----@param dist number
----@return number
-function Syndra:GetEPushDist(dist)
-    return math.min(Constants.Q.range, dist + Constants.E_ENEMY_PUSH_DIST) --use q range for now
-end
-
----@param enemy SDK_AIHeroClient
----@return SDK_DreamPred_Result | nil
 function Syndra:GetQEShortIterPred(enemy)
     local eMod = setmetatable({}, { __index = Constants.E })
     local res = false
     local l = {}
     local pred = nil
+    local pushDist = 0
     while not res do
         _, pred = self.ts:GetTarget(eMod, nil,
             function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
         if not pred then
             SDK.PrintChat("SYNDRA: Iterpred QE Short fail with width - " .. eMod.width)
-            return
+            return nil, nil
         end
         local boundingRadius = enemy:GetBoundingRadius()
         -- local boundingRadius = 0
-        local dist = pred.targetPosition:Distance(myHero:GetPosition())
-        local pushDist = self:GetEPushDist(dist)
+        local dist = pred.targetPosition:Distance(self.playerPos)
+        pushDist = self:GetEPushDist(pred)
         eMod.width = (Constants.E.width + boundingRadius) * dist / pushDist - boundingRadius
         table.insert(l, eMod.width)
         res = Utils.CheckForSame(l)
     end
-    return pred
-end
-
-function Syndra:CanEShort(pred, target)
-    -- wall check
-    local interval = 50
-    local startPos = pred.castPosition
-    local startDist = startPos:Distance(myHero:GetPosition())
-    local diff = (startPos - myHero:GetPosition()):Normalized()
-    local endDist = self:GetEPushDist(startDist) + interval
-    for i = startDist, endDist, interval do
-        local pos = myHero:GetPosition() + diff * i
-        if SDK.NavMesh:IsWall(pos) then
-            return false
-        end
-    end
-
-    -- cc check
-    -- if _G.Prediction.IsImmobile(target, pred.interceptionTime) then return false end
-    return true
+    return pred, pushDist
 end
 
 function Syndra:CastQEShort()
@@ -340,19 +307,18 @@ function Syndra:CastQEShort()
     if not pred.rates["slow"] then
         self.debugText = self.debugText .. "no short rate\n"
     end
-    if not pred.rates["slow"] or myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+    if not pred.rates["slow"] or self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         self.debugText = self.debugText .. "no short rate or too far\n"
     end
     if not pred or not pred.rates["slow"] or
-        myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+        self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
     self.debugText = self.debugText .. "passed first check in QE short\n"
 
-    local iterPred = self:GetQEShortIterPred(target)
+    local iterPred, pushDist = self:GetQEShortIterPred(target)
     if not iterPred then return end
-    if not self:CanEShort(iterPred, target) then return end
-    local qPos = self:GetQEShortQPos(iterPred.castPosition)
+    local qPos = self.playerPos + (iterPred.castPosition - self.playerPos):Normalized() * pushDist
     local ePos = self:GetQEAoeEPos(qPos)
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.Q, qPos) and SDK.Input:CastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
@@ -362,17 +328,36 @@ function Syndra:CastQEShort()
     end
 end
 
+---@param pos SDK_VECTOR
+---@return number
+function Syndra:GetEPushDist(pred)
+    local dist = pred.targetPosition:Distance(self.playerPos)
+    local pushDist = math.min(Constants.Q.range, dist + Constants.E_ENEMY_PUSH_DIST)
+    local interval = 50
+    local startDist = pred.castPosition:Distance(self.playerPos)
+    local diff = (pred.castPosition - self.playerPos):Normalized()
+    local endDist = Constants.Q.range
+    for i = startDist, endDist, interval do
+        local pos = self.playerPos + diff * i
+        if SDK.NavMesh:IsWall(pos) then
+            pushDist = math.min(pushDist, i - interval)
+            break
+        end
+    end
+    return pushDist
+end
+
 function Syndra:CastQEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
         function(unit, pred) return pred.targetDashing and
-                myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
                 self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
         end)
     if not pred then
         return
     end
-    if not self:CanEShort(pred, target) then return end
-    local qPos = self:GetQEShortQPos(pred.castPosition)
+    local pushDist = self:GetEPushDist(pred)
+    local qPos = self.playerPos + (pred.castPosition - self.playerPos):Normalized() * pushDist
     local ePos = self:GetQEAoeEPos(qPos)
     if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.Q, qPos) and SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
@@ -385,13 +370,12 @@ end
 function Syndra:CastWEShort()
     local target, pred = self.ts:GetTarget(Constants.E)
     if not pred or not pred.rates["slow"] or
-        myHero:GetPosition():Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+        self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
-    local iterPred = self:GetQEShortIterPred(target)
+    local iterPred, pushDist = self:GetQEShortIterPred(target)
     if not iterPred then return end
-    if not self:CanEShort(iterPred, target) then return end
-    local wPos = self:GetQEShortQPos(iterPred.castPosition)
+    local wPos = self.playerPos + (iterPred.castPosition - self.playerPos):Normalized() * pushDist
     local ePos = self:GetQEAoeEPos(wPos)
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:CastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
@@ -404,14 +388,14 @@ end
 function Syndra:CastWEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
         function(unit, pred) return pred.targetDashing and
-                myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
                 self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
         end)
     if not pred then
         return
     end
-    if not self:CanEShort(pred, target) then return end
-    local wPos = self:GetQEShortQPos(pred.castPosition)
+    local pushDist = self:GetEPushDist(pred)
+    local wPos = self.playerPos + (pred.castPosition - self.playerPos):Normalized() * pushDist
     local ePos = self:GetQEAoeEPos(wPos)
     if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
@@ -427,13 +411,12 @@ end
 --     if not canGrabOrb then return end
 --     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
 --         function(unit, pred) return pred.targetDashing and
---                 myHero:GetPosition():Distance(pred.targetPosition) < 250 and
+--                 self.playerPos:Distance(pred.targetPosition) < 250 and
 --                 self.menu:Get("antigap." .. unit:GetCharacterName())
 --         end)
 --     if not pred then
 --         return
 --     end
---     if not self:CanEShort(pred, target) then return end
 --     local wPos = self:GetQEShortQPos(pred.castPosition)
 --     local ePos = self:GetQEAoeEPos(wPos)
 --     if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.W, grabTargetTable.pos) and
@@ -441,8 +424,8 @@ end
 --         pred:Draw()
 --         SDK.PrintChat("WWE ANTIGAP")
 --         SDK.PrintChat("orb to cast: " .. wPos:Distance(grabTargetTable.pos))
---         SDK.PrintChat("hero to cast: " .. wPos:Distance(myHero:GetPosition()))
---         SDK.PrintChat("hero to pred: " .. pred.castPosition:Distance(myHero:GetPosition()))
+--         SDK.PrintChat("hero to cast: " .. wPos:Distance(self.playerPos))
+--         SDK.PrintChat("hero to pred: " .. pred.castPosition:Distance(self.playerPos))
 --         return true
 --     else
 --         print("CAST WE ANTIGAP FAIL")
@@ -455,7 +438,7 @@ function Syndra:CastWELong()
     local target, pred = self.ts:GetTarget(Constants.E, nil,
         function(unit) return not SDK.Keyboard:IsKeyDown(0x01) or closest:GetNetworkId() == unit:GetNetworkId() end)
     if not pred or not pred.rates["slow"] or
-        myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
+        self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
     local iterPred = self:GetQELongIterPred(target)
@@ -473,7 +456,7 @@ end
 function Syndra:CastEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
         function(unit, pred) return pred.targetDashing and
-                myHero:GetPosition():Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
                 self.menu:Get("antigap." .. unit:GetCharacterName() .. ".push")
         end)
     if not pred then
@@ -490,15 +473,15 @@ function Syndra:CastEAntigap()
 end
 
 function Syndra:OnDraw()
-    SDK.Renderer:DrawText(self.debugText, 20, SDK.Renderer:WorldToScreen(myHero:GetPosition(), 0), Utils.COLOR_WHITE)
+    SDK.Renderer:DrawText(self.debugText, 20, SDK.Renderer:WorldToScreen(self.playerPos, 0), Utils.COLOR_WHITE)
     local color = self.toggleState and Utils.COLOR_GREEN or Utils.COLOR_WHITE
     if self.menu:Get("draw.q") then
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.Q.range, color)
+        SDK.Renderer:DrawCircle3D(self.playerPos, Constants.Q.range, color)
     end
     if self.menu:Get("draw.e") then
         -- local color = self.menu:Get("e.e1") and Utils.COLOR_RED or Utils.COLOR_WHITE
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.E.range, color)
-        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.W.range + Constants.W_TARGET_RANGE, color)
+        SDK.Renderer:DrawCircle3D(self.playerPos, Constants.E.range, color)
+        SDK.Renderer:DrawCircle3D(self.playerPos, Constants.W.range + Constants.W_TARGET_RANGE, color)
 
     end
     if self.menu:Get("draw.rCircle") then
@@ -530,7 +513,7 @@ end
 ---@return SDK_DreamPred_Result | nil
 function Syndra:GetEPushIterPred(enemy, orbPos)
     local eMod = setmetatable({}, { __index = Constants.E })
-    local orbDist = orbPos:Distance(myHero:GetPosition())
+    local orbDist = orbPos:Distance(self.playerPos)
     local res = false
     local l = {}
     local pred = nil
@@ -540,7 +523,7 @@ function Syndra:GetEPushIterPred(enemy, orbPos)
         if not pred then
             return
         end
-        local distToCast = myHero:GetPosition():Distance(pred.targetPosition)
+        local distToCast = self.playerPos:Distance(pred.targetPosition)
         if distToCast < orbDist - Constants.E.width / 2 then
             return
         end
@@ -554,14 +537,14 @@ end
 
 function Syndra:CastE()
     local orbPosTable = self.om:GetEHitOrbs()
-    local srcPos = Utils.GetSourcePosition(myHero)
+    local srcPos = self.playerPos
     local hitPosTable = {}
     if #orbPosTable == 0 then return end
     local targets, preds = self.ts:GetTargets(Constants.E)
     if #targets == 0 then return end
     local hasOnePrio = false
     for _, orbPos in ipairs(orbPosTable) do
-        if orbPos:Distance(myHero:GetPosition()) < Constants.E_ORB_CONTACT_RANGE + 0.01 then
+        if orbPos:Distance(self.playerPos) < Constants.E_ORB_CONTACT_RANGE + 0.01 then
             local hasTarget, isPrio = false, false
             local diff = (orbPos - srcPos):Normalized()
             local seg = LineSegment(srcPos + diff * Constants.E.range, srcPos)
@@ -584,7 +567,7 @@ function Syndra:CastE()
     end
     if not hasOnePrio then return end
     if #hitPosTable == 0 then return end
-    local res = Geometry.BestAoeConic(myHero:GetPosition(), Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
+    local res = Geometry.BestAoeConic(self.playerPos, Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
         hitPosTable)
     if not res then
         print('WTF no EPOS')
@@ -603,7 +586,7 @@ end
 function Syndra:CastRExecute()
     local targets = self.ts:Evaluate({
         ValidTarget = function(unit)
-            return Utils.IsValidTarget(unit) and unit:GetPosition():Distance(myHero:GetPosition()) < Constants.R_RANGE
+            return Utils.IsValidTarget(unit) and unit:GetPosition():Distance(self.playerPos) < Constants.R_RANGE
         end
     }).Targets
     for _, target in ipairs(targets) do
@@ -670,6 +653,7 @@ function Syndra:LastHitUnkillableW1()
 end
 
 function Syndra:OnUpdate()
+    self.playerPos = Utils.GetSourcePosition(myHero)
     self.debugText = ""
     self:CastSpells()
 end
@@ -702,10 +686,11 @@ function Syndra:CastSpells()
         ((isW2 and self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe, e) then return end
-
+    self.debugText = self.debugText .. " reached e casting\n"
     if (self.menu:Get("e.e2") or self.menu:Get("e.e1")) and e and self.lt:ShouldCast() and self:CastE() then return end
     if r and useR and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
+    self.debugText = self.debugText .. " reached stun casting\n"
     if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
         if not evade then
             if canWe then
