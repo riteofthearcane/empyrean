@@ -30,7 +30,8 @@ return {
             ["Wall"] = true,
             ["Hero"] = false,
             ["Minion"] = false
-        }
+        },
+        debug = true
     },
     R_RANGE = 675,
     ORB_LIFETIME = 6,
