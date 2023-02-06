@@ -481,7 +481,6 @@ function Syndra:OnDraw()
     if self.menu:Get("draw.e") then
         -- local color = self.menu:Get("e.e1") and Utils.COLOR_RED or Utils.COLOR_WHITE
         SDK.Renderer:DrawCircle3D(self.playerPos, Constants.E.range, color)
-        SDK.Renderer:DrawCircle3D(self.playerPos, Constants.W.range + Constants.W_TARGET_RANGE, color)
 
     end
     if self.menu:Get("draw.rCircle") then
