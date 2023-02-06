@@ -25,6 +25,7 @@ function OrbManager:_InitTables()
         isOrb = false,
     }
     self._queueHeldSearch = false
+    self._queueHeldSearchTime = 0
     self._eBlacklist = {} -- should not E held orbs
     self._wBlacklist = {} -- should not W pushed orbs
     self.eLog = {}
@@ -192,6 +193,7 @@ end
 function OrbManager:_OnBuffGain(obj, buff)
     if obj:GetNetworkId() == myHero:GetNetworkId() and buff:GetName() == "syndrawtooltip" then
         self._queueHeldSearch = true
+        self._queueHeldSearchTime = SDK.Game:GetTime()
     end
 end
 
@@ -329,6 +331,9 @@ function OrbManager:_OnUpdate()
         if res then
             self._held = res
             if res.isOrb then self:_HandleOrbHeld(res.obj) end
+            self._queueHeldSearch = false
+        elseif SDK.Game:GetTime() > self._queueHeldSearchTime + 2 then
+            print('ORBMANAGER: Held search timed out')
             self._queueHeldSearch = false
         end
     end

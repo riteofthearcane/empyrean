@@ -71,7 +71,7 @@ function Syndra:InitMenu()
     qMenu:AddLabel("Cast Q in combo or harass")
     local wMenu = self.menu:AddSubMenu("w", "W: Force of Will")
     wMenu:AddLabel("Cast W in combo")
-    wMenu:AddLabel("Cast W1 on unkillable targets in lasthit")
+    wMenu:AddCheckbox("lasthit", "Cast W1 on unkillable targets in lasthit", true)
     local eMenu = self.menu:AddSubMenu("e", "E: Scatter the Weak")
     eMenu:AddKeybind("e1", "QE/WE/E Key", string.byte("E"))
     eMenu:AddKeybind("e2", "E Key", string.byte("T"))
@@ -305,10 +305,10 @@ function Syndra:CastQEShort()
         self.debugText = self.debugText .. "no pred\n"
     end
     if not pred.rates["slow"] then
-        self.debugText = self.debugText .. "no short rate\n"
+        self.debugText = self.debugText .. "no slow rate\n"
     end
-    if not pred.rates["slow"] or self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
-        self.debugText = self.debugText .. "no short rate or too far\n"
+    if self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+        self.debugText = self.debugText .. "too far\n"
     end
     if not pred or not pred.rates["slow"] or
         self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
@@ -462,7 +462,7 @@ function Syndra:CastEAntigap()
     if not pred then
         return
     end
-    local qPos = self:GetQEShortQPos(pred.castPosition)
+    local qPos = pred.castPosition
     local ePos = self:GetQEAoeEPos(qPos)
     if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()
@@ -473,7 +473,7 @@ function Syndra:CastEAntigap()
 end
 
 function Syndra:OnDraw()
-    SDK.Renderer:DrawText(self.debugText, 20, SDK.Renderer:WorldToScreen(self.playerPos, 0), Utils.COLOR_WHITE)
+    SDK.Renderer:DrawText(self.debugText, 15, SDK.Renderer:WorldToScreen(self.playerPos, 0), Utils.COLOR_WHITE)
     local color = self.toggleState and Utils.COLOR_GREEN or Utils.COLOR_WHITE
     if self.menu:Get("draw.q") then
         SDK.Renderer:DrawCircle3D(self.playerPos, Constants.Q.range, color)
@@ -679,6 +679,7 @@ function Syndra:CastSpells()
     if self.menu:Get("e.e1") then
         self.debugText = self.debugText .. "holding E key\n"
     end
+    self.debugText = self.debugText .. "shouldcast " .. tostring(self.slm:ShouldCast()) .. "\n"
     local canQe = hasE and q and e and curMana > qMana + eMana
     local grabTargetTable = self.om:GetGrabTarget()
     local canGrabOrb = grabTargetTable and grabTargetTable.isOrb
@@ -691,7 +692,11 @@ function Syndra:CastSpells()
     if r and useR and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
     self.debugText = self.debugText .. " reached stun casting\n"
+    self.debugText = self.debugText .. "canQE: " .. tostring(canQe) .. "\n"
+    self.debugText = self.debugText .. "canWE: " .. tostring(canWe) .. "\n"
+    self.debugText = self.debugText .. "lt tracker: " .. tostring(self.lt:ShouldCast()) .. "\n"
     if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
+        self.debugText = self.debugText .. "looking at stun\n"
         if not evade then
             if canWe then
                 self.debugText = self.debugText .. "looking at WE\n"
@@ -714,11 +719,15 @@ function Syndra:CastSpells()
             tostring(w) ..
             " isW1:" ..
             tostring(isW1) .. " hasWPred:" .. tostring(self:HasWPred()) .. "\n"
+        local hasGetHeld = self.om:GetHeld() and true or false
+        self.debugText = self.debugText .. "om getheld: " .. tostring(hasGetHeld) .. "\n"
+        self.debugText = self.debugText .. "om searching: " .. tostring(self.om:IsSearchingForHeld()) .. "\n"
         if w and isW1 and self:HasWPred() and self:CastW1() then return end
         if q and self:CastQ() then return end
     end
     if isHarass and q and self:CastQ() then return end
-    if isLasthit and w and isW1 and SDK.GetPlatform() == "FF15" and self:LastHitUnkillableW1() then return end
+    if isLasthit and w and isW1 and self.menu:Get("w.lasthit") and SDK.GetPlatform() == "FF15" and
+        self:LastHitUnkillableW1() then return end
 end
 
 Syndra:__init()
