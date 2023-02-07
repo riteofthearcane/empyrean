@@ -12,6 +12,8 @@ local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
 local OrbManager = require("Common.Utils").Class()
 local Debug = require("Common.Debug")
 
+local W_BUFF = "syndrawtooltip"
+
 
 function OrbManager:_init()
     self:_InitTables()
@@ -26,6 +28,7 @@ function OrbManager:_InitTables()
     }
     self._queueHeldSearch = false
     self._queueHeldSearchTime = 0
+    self._prevTickBuff = false
     self._eBlacklist = {} -- should not E held orbs
     self._wBlacklist = {} -- should not W pushed orbs
     self.eLog = {}
@@ -38,8 +41,6 @@ function OrbManager:_InitEvents()
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnDeleteObject, function(...) self:_OnDeleteObject(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnPlayAnimation, function(...) self:_OnPlayAnimation(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnProcessSpell, function(...) self:_OnProcessSpell(...) end)
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffGain, function(...) self:_OnBuffGain(...) end)
-    SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnBuffLost, function(...) self:_OnBuffLost(...) end)
     SDK.EventManager:RegisterCallback(SDK.Enums.Events.OnNewPath, function(...) self:_OnNewPath(...) end)
 end
 
@@ -187,31 +188,7 @@ function OrbManager:_CheckEPushedOrbs(pos)
         end
     end
 end
-
----@param obj SDK_AIBaseClient
----@param buff SDK_BuffInstance
-function OrbManager:_OnBuffGain(obj, buff)
-    if obj:GetNetworkId() == myHero:GetNetworkId() and buff:GetName() == "syndrawtooltip" then
-        self._queueHeldSearch = true
-        self._queueHeldSearchTime = SDK.Game:GetTime()
-    end
-end
-
----@param obj SDK_AIBaseClient
----@param buff SDK_BuffInstance
-function OrbManager:_OnBuffLost(obj, buff)
-    if obj:GetNetworkId() == myHero:GetNetworkId() and buff:GetName() == "syndrawtooltip" then
-        if self._held.isOrb then
-            self:_MoveOrbToEBlacklist(self._held.obj)
-        end
-        self._held = {
-            obj = nil,
-            isOrb = false,
-        }
-        self._queueHeldSearch = false
-    end
-end
-
+ 
 function OrbManager:_MoveOrbToEBlacklist(obj)
     for uuid, orb in pairs(self._orbs) do
         if orb.netId == obj:GetNetworkId() then
@@ -322,6 +299,7 @@ end
 
 function OrbManager:_OnUpdate()
     -- expire orbs that timed out
+    self:_HandleHeldBuff()
     self:_ExpireOrbs()
     self:_ExpireWBlacklist()
     self:_ExpireEBlacklist()
@@ -332,10 +310,28 @@ function OrbManager:_OnUpdate()
             self._held = res
             if res.isOrb then self:_HandleOrbHeld(res.obj) end
             self._queueHeldSearch = false
-        elseif SDK.Game:GetTime() > self._queueHeldSearchTime + 2 then
-            print('ORBMANAGER: Held search timed out')
-            self._queueHeldSearch = false
         end
+    end
+end
+
+function OrbManager:_HandleHeldBuff()
+    local buff = myHero:AsAI():GetBuff(W_BUFF)
+    local hasBuff = buff ~= nil
+    if hasBuff == self._prevTickBuff then
+        return
+    end
+    self._prevTickBuff = hasBuff
+    if hasBuff then
+        self._queueHeldSearch = true
+    else
+        if self._held.isOrb then
+            self:_MoveOrbToEBlacklist(self._held.obj)
+        end
+        self._held = {
+            obj = nil,
+            isOrb = false,
+        }
+        self._queueHeldSearch = false
     end
 end
 

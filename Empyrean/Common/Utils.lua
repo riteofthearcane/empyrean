@@ -123,8 +123,8 @@ function Utils.GetSourcePosition(unit)
 end
 
 ---@return boolean
-function Utils.IsValidCircularPred(pred, spell)
-    return pred and (myHero:GetPosition():Distance(pred.targetPosition) < spell.range or pred.realHitChance == 1)
+function Utils.IsValidPred(pred, spell, target)
+    return pred and (myHero:GetPosition():Distance(target:GetPosition()) < spell.range or pred.realHitChance == 1)
 end
 
 function Utils.Uuid()
