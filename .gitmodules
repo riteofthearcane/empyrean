@@ -1,0 +1,3 @@
+[submodule "LeagueSDK"]
+	path = LeagueSDK
+	url = git@github.com:LeagueSDK/LeagueSDK.git

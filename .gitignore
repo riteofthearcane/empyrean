@@ -5,7 +5,6 @@ process.py
 squish
 /*.lua
 DreamApi/*
-LeagueSDK/*
 Common/*
 __pycache__/*
 map.txt
