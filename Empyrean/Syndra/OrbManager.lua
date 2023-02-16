@@ -14,6 +14,10 @@ local Debug = require("Common.Debug")
 
 local W_BUFF = "syndrawtooltip"
 
+local function IsOrb(obj)
+    return obj:GetName() == "Seed" and obj:GetTeam() == myHero:GetTeam() and obj:AsAI():GetCharacterName() == "SyndraSphere"
+end
+
 
 function OrbManager:_init()
     self:_InitTables()
@@ -25,6 +29,12 @@ function OrbManager:_InitTables()
     self._held = {
         obj = nil,
         isOrb = false,
+    }
+    self._fasterHeld = {
+        obj = nil,
+        isOrb = false, 
+        time = SDK.Game:GetTime(),
+        active = false
     }
     self._queueHeldSearch = false
     self._queueHeldSearchTime = 0
@@ -45,23 +55,28 @@ function OrbManager:_InitEvents()
 end
 
 function OrbManager:_OnNewPath(source, pathing)
-    -- if source:GetName() == "Seed" then
-    --     local speed = pathing:GetDashSpeed()
-    --     if speed < 400 or speed == 1200 then return end
-    --     SDK.PrintChat("ONNEWPATH SPEED: " .. speed)
-    --     SDK.PrintChat("ONNEWPATH DIST: " .. pathing:GetEndPos():Distance(pathing:GetStartPos()))
-    --     local startPos = pathing:GetStartPos()
-    --     local endPos = pathing:GetEndPos()
-    --     Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(startPos, 50, Utils.COLOR_BLUE) end, 5)
-    --     Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(endPos, 50, Utils.COLOR_BLUE) end, 5)
-    -- end
+    if source:GetName() == "Seed" then
+        -- local speed = pathing:GetDashSpeed()
+        -- -- if speed < 400 or speed == 1200 then return end
+        -- if not self.wTime then
+        --     self.wTime = SDK.Game:GetTime()
+        -- else
+        --     SDK.PrintChat("W TIME: " .. SDK.Game:GetTime() - self.wTime)
+        --     self.wTime = nil
+        -- end
+        -- SDK.PrintChat("ONNEWPATH SPEED: " .. speed)
+        -- SDK.PrintChat("ONNEWPATH DIST: " .. pathing:GetEndPos():Distance(pathing:GetStartPos()))
+        -- local startPos = pathing:GetStartPos()
+        -- local endPos = pathing:GetEndPos()
+        -- Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(startPos, 50, Utils.COLOR_BLUE) end, 5)
+        -- Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(endPos, 50, Utils.COLOR_BLUE) end, 5)
+    end
 end
 
 ---@param obj SDK_GameObject
 ---@param name string
 function OrbManager:_OnPlayAnimation(obj, name)
-    if obj:GetName() == "Seed" and obj:GetTeam() == myHero:GetTeam() and obj:AsAI():GetCharacterName() == "SyndraSphere"
-        and name == "Death" then
+    if IsOrb(obj) and name == "Death" then
         local netId = obj:GetNetworkId()
         self:_HandleOrbObjDelete(netId)
     end
@@ -70,7 +85,7 @@ end
 ---@param obj SDK_GameObject
 ---@param netId number
 function OrbManager:_OnCreateObject(obj, netId)
-    if obj:GetName() == "Seed" and obj:GetTeam() == myHero:GetTeam() and obj:AsAI():GetCharacterName() == "SyndraSphere" then
+    if IsOrb(obj) then
         self:_HandleOrbObjCreate(obj)
     end
 end
@@ -78,7 +93,7 @@ end
 ---@param obj SDK_GameObject
 ---@param netId number
 function OrbManager:_OnDeleteObject(obj, netId)
-    if obj:GetName() == "Seed" and obj:GetTeam() == myHero:GetTeam() and obj:AsAI():GetCharacterName() == "SyndraSphere" then
+    if IsOrb(obj) then
         self:_HandleOrbObjDelete(netId)
     end
 end
@@ -86,7 +101,7 @@ end
 ---@param obj SDK_GameObject
 function OrbManager:_HandleOrbObjCreate(obj)
     local newOrb = {
-        obj = obj,
+        obj = obj:AsMinion(),
         startTime = SDK.Game:GetTime(),
         endTime = SDK.Game:GetTime() + Constants.ORB_LIFETIME,
         isInit = true,
@@ -222,8 +237,8 @@ function OrbManager:_OnProcessSpell(obj, cast)
 end
 
 ---@return boolean
-function OrbManager:IsSearchingForHeld()
-    return self._queueHeldSearch
+function OrbManager:HasHeld()
+    return self._queueHeldSearch or self:GetHeld() ~= nil
 end
 
 ---@return table{obj: SDK_GameObject, pos:SDK_VECTOR, isOrb: boolean} | nil
@@ -297,8 +312,30 @@ function OrbManager:GetGrabTarget()
     end
 end
 
+function OrbManager:InvokeGrab(obj)
+    self._fasterHeld = {
+        obj = obj,
+        isOrb = IsOrb(obj),
+        time = SDK.Game:GetTime(),
+    }
+end
+
+function OrbManager:_ManagerFasterHeld()
+    if not self._fasterHeld.obj then return end
+    if SDK.Game:GetTime() - self._fasterHeld.time > 0.5 then
+        self._fasterHeld = {
+            obj = nil,
+            isOrb = false,
+            time = 0,
+            active = false, 
+        }
+    elseif SDK.Game:GetTime() - self._fasterHeld.time > 0.25 then
+        self._fasterHeld.active = true
+    end
+end
+
 function OrbManager:_OnUpdate()
-    -- expire orbs that timed out
+    self:_ManagerFasterHeld()
     self:_HandleHeldBuff()
     self:_ExpireOrbs()
     self:_ExpireWBlacklist()
@@ -307,6 +344,7 @@ function OrbManager:_OnUpdate()
     if self._queueHeldSearch then
         local res = self:_GetHeldOrb() or self:_GetHeldMinion()
         if res then
+            -- SDK.PrintChat("held found in: " .. SDK.Game:GetTime() - self._fasterHeld.time)
             self._held = res
             if res.isOrb then self:_HandleOrbHeld(res.obj) end
             self._queueHeldSearch = false
@@ -338,7 +376,9 @@ end
 ---@return table{obj=SDK_GameObject | nil, isOrb=boolean} | nil
 function OrbManager:GetHeld()
     if self._held.obj then
-        return self._held
+        return {obj = self._held.obj, isOrb = self._held.isOrb}
+    elseif self._fasterHeld.obj and self._fasterHeld.active then
+        return {obj = self._fasterHeld.obj, isOrb = self._fasterHeld.isOrb}
     end
 end
 

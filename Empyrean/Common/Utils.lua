@@ -3,6 +3,8 @@ local SDK = require("LeagueSDK.LeagueSDK")
 ---@type SDK_AIHeroClient
 local myHero = SDK.Player
 
+local Vector = SDK.Libs.Vector
+
 local ITEM_SLOTS =
 {
     SDK.Enums.SpellSlot.Item1,
@@ -21,19 +23,21 @@ local SUMMONER_SLOTS = {
 
 local FLASH_DIST = 400
 
+local enemies = SDK.ObjectManager:GetEnemyHeroes()
+
 local Utils = {}
 
 function Utils.Class()
     return setmetatable({}, {
-        __call = function(self, ...)
-            local result = setmetatable({}, {
-                __index = self
-            })
-            result:_init(...)
+            __call = function(self, ...)
+                local result = setmetatable({}, {
+                        __index = self
+                    })
+                result:_init(...)
 
-            return result
-        end
-    })
+                return result
+            end
+        })
 end
 
 Utils.COLOR_WHITE = SDK.Libs.Color.GetD3DColor(255, 255, 255, 255)
@@ -119,7 +123,6 @@ end
 function Utils.GetSourcePosition(unit)
     return _G.Prediction.SDK.GetUnitPosition(unit, SDK.Game:GetLatency() / 2000)
     -- return _G.Prediction.SDK.GetTrueUnitPosition(unit, SDK.Game:GetLatency() / 2000)
-
 end
 
 ---@return boolean
@@ -127,12 +130,62 @@ function Utils.IsValidPred(pred, spell, target)
     return pred and (myHero:GetPosition():Distance(target:GetPosition()) < spell.range or pred.realHitChance == 1)
 end
 
+---@param target SDK_AIHeroClient
+---@return SDK_VECTOR
+function Utils.GetHealthBarStartPos(target)
+    local barPos = target:AsAI():GetHealthBarScreenPos()
+    -- TODO: finish this
+    return barPos
+end
+
+---@return number
+function Utils.GetHealthBarWidth()
+    local resolution = SDK.Renderer:GetResolution()
+end
+
+---@return number
+function Utils.GetHealthBarHeight()
+
+end
+
+function Utils.DrawHealthBarDamage(damageFunc, range)
+    local w = Utils.GetHealthBarWidth()
+    local h = Utils.GetHealthBarHeight()
+    for _, enemy in pairs(enemies) do
+        if not Utils.IsValidTarget(enemy) or myHero:GetPosition():Distance(enemy:GetPosition()) > range then
+            goto continue
+        end
+        local damage = damageFunc(enemy)
+        local healthAfter = enemy:GetHealth() + enemy:GetShieldAll() - damage
+        local canExecute = healthAfter <= damage
+        local bar = enemy:AsAI():GetHealthBarScreenPos()
+        if canExecute then
+            local color = Utils.COLOR_RED
+            local p1 = bar
+            local p2 = bar + Vector(w, 0, 0)
+            local p3 = bar + Vector(w, h, 0)
+            local p4 = bar + Vector(0, h, 0)
+            SDK.Renderer:DrawLine(p1, p2, color)
+            SDK.Renderer:DrawLine(p2, p3, color)
+            SDK.Renderer:DrawLine(p3, p4, color)
+            SDK.Renderer:DrawLine(p4, p1, color)
+        else
+            local color = Utils.COLOR_RED
+            local xOffset = w * (healthAfter / enemy:GetMaxHealth())
+            local p1 = bar + Vector(xOffset, 0, 0)
+            local p2 = bar + Vector(xOffset, h, 0)
+            SDK.Renderer:DrawLine(p1, p2, color)
+        end
+        ::continue::
+    end
+end
+
 function Utils.Uuid()
     local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
     return string.gsub(template, '[xy]', function(c)
-        local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
-        return string.format('%x', v)
-    end)
+            local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
+            return string.format('%x', v)
+        end)
 end
 
 return Utils

@@ -71,19 +71,20 @@ function Syndra:InitMenu()
     local wMenu = self.menu:AddSubMenu("w", "W: Force of Will")
     wMenu:AddLabel("Cast W in combo")
     wMenu:AddCheckbox("lasthit", "Cast W1 on unkillable targets in lasthit", true)
+    wMenu:AddSlider("wDelay", "W delay", { min = 0, max = 1, default = 0.5, step = 0.05 })
+    wMenu:AddSlider("wDistMin", "W dist min", { min = 0, max = 1500, default = 500, step = 25 })
+    wMenu:AddSlider("wDistMax", "W dist max", { min = 0, max = 1500, default = 1000, step = 25 })
     local eMenu = self.menu:AddSubMenu("e", "E: Scatter the Weak")
-    eMenu:AddKeybind("e1", "QE/WE/E Key", string.byte("E"))
-    eMenu:AddKeybind("e2", "E Key (requires orbs on ground)", string.byte("T"))
-    eMenu:AddLabel("Use LMB to cast with mouse targeting")
+    eMenu:AddKeybind("e1", "Stun Key (Mouse)", string.byte("E"))
+    eMenu:AddCheckbox("useMouse", "Use mouse targeting (else TS)", true)
+    eMenu:AddKeybind("e2", "E Stun Key (requires orbs on ground)", string.byte("Z"))
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
-    rMenu:AddLabel("Use LMB to cast R to execute")
     rMenu:AddKeybind("rExecute", "Use key of choice to cast R to execute", string.byte("A"))
     rMenu:AddCheckbox("toggle", "Use LMB/above key as toggle", false)
     rMenu:AddLabel("If above is toggle, will turn off after r usage")
     rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
     rMenu:AddSlider("circle", "R aim circle radius", { min = 100, max = 500, default = 200, step = 100 })
     local antigapMenu = self.menu:AddSubMenu("antigap", "Anti-Gap")
-    antigapMenu:AddLabel("Cast QE/WE on anti-gap")
     for _, enemy in pairs(enemies) do
         local charName = enemy:GetCharacterName()
         local charMenu = antigapMenu:AddSubMenu(charName, charName)
@@ -94,7 +95,8 @@ function Syndra:InitMenu()
     drawMenu:AddCheckbox("q", "Draw Q range", true)
     drawMenu:AddCheckbox("e", "Draw E range", true)
     drawMenu:AddCheckbox("rCircle", "Draw R aim circle", false)
-    drawMenu:AddCheckbox("rUsage", "Draw R usage", true)
+    drawMenu:AddCheckbox("rDmg", "Draw R damage", false)
+    drawMenu:AddCheckbox("debug", "Draw debug", true)
     self.menu:Render()
 end
 
@@ -104,19 +106,14 @@ function Syndra:InitEvents()
 end
 
 function Syndra:CastQ()
-    local target, pred = self.ts:GetTarget(Constants.Q, nil, nil,
-            function(unit, pred) return Utils.IsValidPred(pred, Constants.Q, unit) end)
+    local target, pred = self.ts:GetTarget(Constants.Q)
     if not pred or not pred.rates["slow"] then return end
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.Q, pred.castPosition) then return end
     pred:Draw()
     return true
 end
 
----@param enemy SDK_AIHeroClient
----@return SDK_DreamPred_Result | nil
-function Syndra:GetW2IterPred(enemy)
-    local obj = self.om:GetHeld().obj
-    local src = Utils.GetSourcePosition(obj:AsHero())
+function Syndra:GetW2IterPred(enemy, src)
     local wMod = setmetatable({}, { __index = Constants.W })
     local res = false
     local l = {}
@@ -125,34 +122,47 @@ function Syndra:GetW2IterPred(enemy)
         _, pred = self.ts:GetTarget(wMod, nil,
                 function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
         if not pred then
-            SDK.PrintChat("SYNDRA: Iterpred W2 Long fail")
-            return
+            return nil, nil
         end
         local distToCast = src:Distance(pred.targetPosition)
-        wMod.speed = math.max(math.min(distToCast, 1500), 200)
-        table.insert(l, wMod.speed)
+        wMod.delay = math.sqrt(distToCast) / 43
+        table.insert(l, wMod.delay)
         res = Utils.CheckForSame(l)
     end
-    SDK.PrintChat("W SPEED: " .. wMod.speed)
-    SDK.PrintChat("DIST TO CAST: " .. src:Distance(pred.castPosition))
-    Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(pred.castPosition, 150, Utils.COLOR_RED) end, 5)
-    Debug.RegisterDraw(function() SDK.Renderer:DrawCircle3D(src, 150, Utils.COLOR_RED) end, 5)
-    return pred
+    return pred, wMod.delay
+end
+
+function Syndra:GetWPred(src)
+    local wMod = setmetatable({}, { __index = Constants.W })
+    local resDelay = 0
+    local target, pred = self.ts:GetTarget(wMod, nil, function(unit)
+            local _, delay = self:GetW2IterPred(unit, src)
+            if not delay then return false end
+            wMod.delay = delay
+            resDelay = delay
+            return true
+        end, function(unit, pred)
+            wMod.delay = Constants.W.delay
+            return true
+        end)
+    return pred, resDelay
 end
 
 function Syndra:CastW2()
-    -- local target, pred = self.ts:GetTarget(Constants.W) --TODO: check W blacklist for champs if enemy has been pushed by E
-    -- if not pred or not pred.rates["slow"] then
-    --     return
-    -- end
-    -- local iterPred = self:GetW2IterPred(target)
-    -- if not iterPred then return end
-    -- if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, iterPred.castPosition) then
-    --     return
-    -- end
-    -- iterPred:Draw()
-    -- return true
-    -- -- TODO: wall checks
+    --TODO: check W blacklist for champs if enemy has been pushed by E
+    local obj = self.om:GetHeld().obj
+    local src = Utils.GetSourcePosition(obj)
+    local pred, delay = self:GetWPred(src)
+    if not pred or not pred.rates["slow"] then
+        return
+    end
+    if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then
+        return
+    end
+    SDK.PrintChat("W2 delay: " .. delay)
+    pred:Draw()
+    return true
+    -- TODO: wall checks
 end
 
 function Syndra:CastW2Old()
@@ -165,7 +175,7 @@ function Syndra:CastW2Old()
         useHeroSource = true,
     }
     local target, pred = self.ts:GetTarget(W, nil, nil,
-            function(unit, pred) return Utils.IsValidPred(pred, W, unit) end)
+            function(unit, pred) return not SDK.NavMesh:IsWall(pred.castPosition) end)
     --TODO: check W blacklist for champs if enemy has been pushed by E
     if not pred or not pred.rates["slow"] then
         return
@@ -188,6 +198,7 @@ function Syndra:CastW1()
         self.debugText = self.debugText .. "Failed w1 cast\n"
         return
     end
+    -- self.om:InvokeGrab(grabTargetTable.obj)
     return true
 end
 
@@ -246,22 +257,22 @@ function Syndra:HasEPred()
     return pred ~= nil
 end
 
-function Syndra:HasWPred()
-    local target, pred = self.ts:GetTarget(Constants.W, nil, nil,
-            function(unit, pred)
-                -- anti feez pred
-                return Utils.IsValidPred(pred, Constants.W, unit)
-            end) --TODO: check W blacklist for champs if enemy has been pushed by E
-    return pred ~= nil
+function Syndra:HasWPred(obj)
+    if not obj then return false end
+    local offsetDist = 250
+    local objPos = Utils.GetSourcePosition(obj)
+    local diff = (objPos - self.playerPos):Normalized()
+    local src = self.playerPos - diff * offsetDist
+    return self:GetWPred(src) ~= nil
 end
 
-function Syndra:CastQELong()
+function Syndra:CastQELong(useMouse)
     self.debugText = self.debugText .. "in QE long\n"
     local closest = self.nem:GetTarget()
-    if SDK.Keyboard:IsKeyDown(0x01) and not closest then return end
+    if useMouse and not closest then return end
     local target, checkPred = self.ts:GetTarget(Constants.E, nil, nil,
             function(unit, pred)
-                return (not SDK.Keyboard:IsKeyDown(0x01) or closest:GetNetworkId() == unit:GetNetworkId()) and
+                return (not useMouse or closest:GetNetworkId() == unit:GetNetworkId()) and
                     Utils.IsValidPred(pred, Constants.E, unit)
             end)
     if not checkPred or not checkPred.rates["slow"] or
@@ -308,20 +319,20 @@ function Syndra:GetQEShortIterPred(enemy)
     return resPred, pushDist
 end
 
-function Syndra:CastQEShort()
+function Syndra:CastQEShort(useMouse)
     local target, checkPred = self.ts:GetTarget(Constants.E, nil, nil,
             function(unit, pred)
-                return (not SDK.Keyboard:IsKeyDown(0x01) or self.nem:IsTarget(unit)) and
+                return (not useMouse or self.nem:IsTarget(unit)) and
                     Utils.IsValidPred(pred, Constants.E, unit)
             end)
     self.debugText = self.debugText .. "looking at QE short\n"
     if not checkPred then
         self.debugText = self.debugText .. "no pred\n"
     end
-    if not checkPred.rates["slow"] then
+    if checkPred and not checkPred.rates["slow"] then
         self.debugText = self.debugText .. "no slow rate\n"
     end
-    if self.playerPos:Distance(checkPred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
+    if checkPred and self.playerPos:Distance(checkPred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         self.debugText = self.debugText .. "too far\n"
     end
     if not checkPred or not checkPred.rates["slow"] or
@@ -382,10 +393,10 @@ function Syndra:CastQEAntigap()
     end
 end
 
-function Syndra:CastWEShort()
+function Syndra:CastWEShort(useMouse)
     local target, checkPred = self.ts:GetTarget(Constants.E, nil, nil,
             function(unit, pred)
-                return (not SDK.Keyboard:IsKeyDown(0x01) or self.nem:IsTarget(unit)) and
+                return (not useMouse or self.nem:IsTarget(unit)) and
                     Utils.IsValidPred(pred, Constants.E, unit)
             end)
     if not checkPred or not checkPred.rates["slow"] or
@@ -452,12 +463,12 @@ end
 --     end
 -- end
 
-function Syndra:CastWELong()
+function Syndra:CastWELong(useMouse)
     local closest = self.nem:GetTarget()
-    if SDK.Keyboard:IsKeyDown(0x01) and not closest then return end
+    if useMouse and not closest then return end
     local target, checkPred = self.ts:GetTarget(Constants.E, nil, nil,
             function(unit, pred)
-                return (not SDK.Keyboard:IsKeyDown(0x01) or closest:GetNetworkId() == unit:GetNetworkId()) and
+                return (not useMouse or closest:GetNetworkId() == unit:GetNetworkId()) and
                     Utils.IsValidPred(pred, Constants.E, unit)
             end)
     if not checkPred or not checkPred.rates["slow"] or
@@ -497,7 +508,9 @@ function Syndra:CastEAntigap()
 end
 
 function Syndra:OnDraw()
-    SDK.Renderer:DrawText(self.debugText, 15, SDK.Renderer:WorldToScreen(self.playerPos, 0), Utils.COLOR_WHITE)
+    if self.menu:Get('draw.debug') then
+        SDK.Renderer:DrawText(self.debugText, 10, SDK.Renderer:WorldToScreen(self.playerPos, 0), Utils.COLOR_WHITE)
+    end
     local color = self.toggleState and Utils.COLOR_GREEN or Utils.COLOR_WHITE
     if self.menu:Get("draw.q") then
         SDK.Renderer:DrawCircle3D(self.playerPos, Constants.Q.range, color)
@@ -509,13 +522,16 @@ function Syndra:OnDraw()
     if self.menu:Get("draw.rCircle") then
         SDK.Renderer:DrawCircle3D(SDK.Renderer:GetMousePos3D(), self.menu:Get("r.circle"), color)
     end
+    local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R)
+    if r and self.menu:Get("draw.rDmg") then
+        Utils.DrawHealthBarDamage(self.GetRDamage, 2500)
+    end
 end
 
 function Syndra:CastAntigap(canQe, canWe, e)
     if not canQe and not canWe and not e then return end
     local hasOrb = self.om:GetHeld() and self.om:GetHeld().isOrb
-    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:GetHeld() and
-        not self.om:IsSearchingForHeld()
+    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:HasHeld()
     if canWe and hasOrb and self:CastWEAntigap() then
         return true
     end
@@ -559,7 +575,7 @@ function Syndra:GetEPushIterPred(enemy, orbPos)
     return resPred
 end
 
-function Syndra:CastE()
+function Syndra:CastEStun()
     local orbPosTable = self.om:GetEHitOrbs()
     local srcPos = self.playerPos
     local hitPosTable = {}
@@ -616,23 +632,23 @@ function Syndra:CastRExecute()
             end
         }).Targets
     for _, target in ipairs(targets) do
-        if self:CanExecuteR(target) and
+        if target:GetHealth() + target:GetShieldAll() <= self:GetRDamage(target) and
             SDK.Input:Cast(SDK.Enums.SpellSlot.R, target) then
             return true
         end
     end
 end
 
-function Syndra:GetRDamage()
+function Syndra:GetRDamage(target)
     local ammo = myHero:GetSpell(SDK.Enums.SpellSlot.R):GetAmmo()
     local level = myHero:GetSpell(SDK.Enums.SpellSlot.R):GetLevel()
-    return ammo * (0.17 * myHero:GetTotalAP() + 50 + 40 * level)
-end
-
-function Syndra:CanExecuteR(target)
-    local damage = SDK.Libs.Damage:GetMagicalDamage(myHero, target, self:GetRDamage())
+    local total = ammo * (0.17 * myHero:GetTotalAP() + 50 + 40 * level)
+    local damage = SDK.Libs.Damage:GetMagicalDamage(myHero, target, total)
     local remainingHealth = target:GetHealth() + target:GetShieldAll() - damage
-    return remainingHealth < 0 or (self:IsRUpgraded() and remainingHealth / target:GetMaxHealth() < 0.15)
+    if remainingHealth >= 0 and (self:IsRUpgraded() and remainingHealth / target:GetMaxHealth() < 0.15) then
+        damage = damage + remainingHealth
+    end
+    return damage
 end
 
 function Syndra:IsRUpgraded()
@@ -641,7 +657,7 @@ end
 
 function Syndra:ComputeRTriggerState()
     local rToggleState = self.menu:Get("r.toggle")
-    local rKeyState = self.menu:Get("r.rExecute") or SDK.Keyboard:IsKeyDown(0x01)
+    local rKeyState = self.menu:Get("r.rExecute")
     local res = false
 
     if rToggleState ~= self.prevMenuToggle then
@@ -691,10 +707,11 @@ function Syndra:CastSpells()
     local isHarass = SDK.Libs.Orbwalker:IsHarassMode()
     local isLasthit = SDK.Libs.Orbwalker:IsLastHitMode()
     local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast()
-    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:GetHeld() and
-        not self.om:IsSearchingForHeld()
-    local isW2 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraWCast" and self.om:GetHeld()
-    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and self.slm:ShouldCast() and (isW1 or isW2)
+    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:HasHeld() and
+        self.slm:ShouldCast()
+    local isW2 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraWCast" and self.om:HasHeld() and
+        self.slm:ShouldCast()
+    local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and (isW1 or isW2)
     local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.slm:ShouldCast()
     local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R) and self.slm:ShouldCast()
     local qMana = myHero:GetSpell(SDK.Enums.SpellSlot.Q):GetManaCost()
@@ -702,54 +719,58 @@ function Syndra:CastSpells()
     local eMana = myHero:GetSpell(SDK.Enums.SpellSlot.E):GetManaCost()
     local curMana = myHero:AsAttackableUnit():GetMana()
     local hasE = self:HasEPred()
-    if self.menu:Get("e.e1") then
+    local eKey = self.menu:Get("e.e1")
+    local useMouse = self.menu:Get("e.useMouse")
+    self.debugText = self.debugText .. "E pred: " .. tostring(hasE) .. "\n"
+    if eKey then
         self.debugText = self.debugText .. "holding E key\n"
     end
     self.debugText = self.debugText .. "shouldcast " .. tostring(self.slm:ShouldCast()) .. "\n"
     local canQe = hasE and q and e and curMana > qMana + eMana
     local grabTargetTable = self.om:GetGrabTarget()
     local canGrabOrb = grabTargetTable and grabTargetTable.isOrb
+    local hasW = self:HasWPred(grabTargetTable and grabTargetTable.obj or nil)
     local canWe = hasE and w and e and curMana > wMana + eMana and
         ((isW2 and self.om:GetHeld() and self.om:GetHeld().isOrb) or (isW1 and canGrabOrb))
     local canE = canQe or canWe
     if self:CastAntigap(canQe, canWe, e) then return end
     self.debugText = self.debugText .. " reached e casting\n"
-    if (self.menu:Get("e.e2") or self.menu:Get("e.e1")) and e and self.lt:ShouldCast() and self:CastE() then return end
+    if (self.menu:Get("e.e2") or eKey) and e and self.lt:ShouldCast() and self:CastEStun() then return end
     if r and useR and self:CastRExecute() then return end
     if r and self.menu:Get("r.r") and self.lt:ShouldCast() and self:CastR() then return end
     self.debugText = self.debugText .. " reached stun casting\n"
     self.debugText = self.debugText .. "canQE: " .. tostring(canQe) .. "\n"
     self.debugText = self.debugText .. "canWE: " .. tostring(canWe) .. "\n"
     self.debugText = self.debugText .. "lt tracker: " .. tostring(self.lt:ShouldCast()) .. "\n"
-    if self.menu:Get("e.e1") and canE and self.lt:ShouldCast() then
+    if eKey and canE and self.lt:ShouldCast() then
         self.debugText = self.debugText .. "looking at stun\n"
         if not evade then
             if canWe then
                 self.debugText = self.debugText .. "looking at WE\n"
-                if (isW2 and (self:CastWEShort() or self:CastWELong()))
+                if (isW2 and (self:CastWEShort(useMouse) or self:CastWELong(useMouse)))
                     or
                     (isW1 and self:CastW1()) then
                     return
                 end
-            else
+            elseif canQe then
                 self.debugText = self.debugText .. "looking at QE\n"
-                if self:CastQEShort() or self:CastQELong() then return end
+                if self:CastQEShort(useMouse) or self:CastQELong(useMouse) then return end
             end
         end
     end
     self.debugText = self.debugText .. " reached combo\n"
-    if isCombo and not (self.menu:Get("e.e1") and canE) then
-        if w and isW2 and self:CastW2Old() then return end
+    if isCombo and not (eKey and canE) then
+        if w and isW2 and self:CastW2() then return end
         self.debugText = self.debugText .. " reached w1\n"
         self.debugText = self.debugText ..
             " w:" ..
             tostring(w) ..
             " isW1:" ..
-            tostring(isW1) .. " hasWPred:" .. tostring(self:HasWPred()) .. "\n"
+            tostring(isW1) .. "\n"
         local hasGetHeld = self.om:GetHeld() and true or false
         self.debugText = self.debugText .. "om getheld: " .. tostring(hasGetHeld) .. "\n"
-        self.debugText = self.debugText .. "om searching: " .. tostring(self.om:IsSearchingForHeld()) .. "\n"
-        if w and isW1 and self:HasWPred() and self:CastW1() then return end
+        self.debugText = self.debugText .. "om hasheld: " .. tostring(self.om:HasHeld()) .. "\n"
+        if w and isW1 and hasW and self:CastW1() then return end
         if q and self:CastQ() then return end
     end
     if isHarass and q and self:CastQ() then return end

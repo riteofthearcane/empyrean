@@ -77,10 +77,10 @@ function Xerath:InitFields()
 
     ---@type Empyrean.Common.TapManager
     self.tm = TapManager(
-        function() return self.menu:Get("e.useTap") and self.menu:Get("e.eTap") end,
-        function() return not self.menu:Get("e.useTap") and self.menu:Get("e.e") end,
-        function() return not self.menu:Get("e.useTap") and self.menu:Get("e.eFlash") end
-    )
+            function() return self.menu:Get("e.useTap") and self.menu:Get("e.eTap") end,
+            function() return not self.menu:Get("e.useTap") and self.menu:Get("e.e") end,
+            function() return not self.menu:Get("e.useTap") and self.menu:Get("e.eFlash") end
+        )
 
     ---@type Empyrean.Common.NearestEnemyTracker
     self.nem = NearestEnemyTracker()
@@ -89,12 +89,12 @@ function Xerath:InitFields()
     self.lt = LevelTracker()
 
     self.ts =
-    DreamTS(
-        self.menu:GetChild("dreamTs"),
-        {
-            Damage = DreamTS.Damages.AP
-        }
-    )
+        DreamTS(
+            self.menu:GetChild("dreamTs"),
+            {
+                Damage = DreamTS.Damages.AP
+            }
+        )
 end
 
 function Xerath:InitMenu()
@@ -132,6 +132,7 @@ function Xerath:InitMenu()
     drawMenu:AddCheckbox("r", "Draw R range", true)
     drawMenu:AddCheckbox("rMinimap", "Draw R range on minimap", true)
     drawMenu:AddCheckbox("rCircle", "Draw R aim circle ", true)
+    drawMenu:AddCheckbox("rDmg", "Draw R dmg ", true)
     self.menu:Render()
 end
 
@@ -160,6 +161,14 @@ function Xerath:OnDraw()
     if self.menu:Get("draw.rCircle") and self.bm:IsRActive() then
         SDK.Renderer:DrawCircle3D(mousePos, radius, Utils.COLOR_WHITE)
     end
+    if self.menu:Get("draw.rDmg") then
+        local f = function(target)
+            local level = myHero:GetSpell(SDK.Enums.SpellSlot.R):GetLevel()
+            local total = 0.45 * myHero:GetTotalAP() + 150 + 50 * level
+            return SDK.Libs.Damage:GetMagicalDamage(myHero, target, total)
+        end
+        Utils.DrawHealthBarDamage(f, self.r.range)
+    end
 end
 
 function Xerath:UpdateQRange()
@@ -175,7 +184,8 @@ function Xerath:GetQRange()
 end
 
 function Xerath:CastQ1()
-    local target, pred = self.ts:GetTarget(self.q)
+    local target, pred = self.ts:GetTarget(self.q, nil, nil,
+            function(unit, checkPred) return Utils.IsValidPred(checkPred, self.q, unit) end)
     if not pred then
         return
     end
@@ -202,8 +212,8 @@ function Xerath:CastQ1()
 end
 
 function Xerath:CastQ2()
-    local target, pred = self.ts:GetTarget(self.q, nil,
-        function(unit) return myHero:GetPosition():Distance(unit:GetPosition()) < self.q.range end)
+    local target, pred = self.ts:GetTarget(self.q, nil, nil,
+            function(unit, checkPred) return Utils.IsValidPred(checkPred, self.q, unit) end)
     if not pred or not pred.rates["slow"] then
         return
     end
@@ -214,16 +224,13 @@ function Xerath:CastQ2()
 end
 
 function Xerath:HasWPred()
-    local target, pred = self.ts:GetTarget(self.w, nil, nil,
-        function(unit, pred)
-            -- anti feez pred
-            return Utils.IsValidCircularPred(pred, self.w)
-        end)
+    local target, pred = self.ts:GetTarget(self.w)
     return pred ~= nil
 end
 
 function Xerath:HasEPred()
-    local target, pred = self.ts:GetTarget(self.e)
+    local target, pred = self.ts:GetTarget(self.e, nil, nil,
+            function(unit, checkPred) return Utils.IsValidPred(checkPred, self.e, unit) end)
     return pred ~= nil
 end
 
@@ -240,9 +247,9 @@ end
 
 function Xerath:CastAntiGapW()
     local target, pred = self.ts:GetTarget(self.w, nil, nil, function(unit, pred)
-        local menuName = "antigap." .. unit:GetCharacterName() .. ".w"
-        return pred and pred.targetDashing and self.menu:Get(menuName)
-    end)
+            local menuName = "antigap." .. unit:GetCharacterName() .. ".w"
+            return pred and pred.targetDashing and self.menu:Get(menuName)
+        end)
     if not pred then
         return
     end
@@ -253,7 +260,8 @@ function Xerath:CastAntiGapW()
 end
 
 function Xerath:CastE()
-    local target, pred = self.ts:GetTarget(self.e)
+    local target, pred = self.ts:GetTarget(self.e, nil, nil,
+            function(unit, checkPred) return Utils.IsValidPred(checkPred, self.e, unit) end)
     if not pred or not pred.rates["slow"] then
         return
     end
@@ -271,8 +279,8 @@ function Xerath:CastEFlash()
     local posList = Utils.GenerateSpellFlashPositions(target)
     for _, pos in pairs(posList) do
         local target, pred = self.ts:GetTarget(self.e, pos, nil, function(unit, pred)
-            return self.nem:IsTarget(unit) and pred.rates["slow"]
-        end, self.ts.Modes["Closest To Mouse"])
+                return self.nem:IsTarget(unit) and pred.rates["slow"]
+            end, self.ts.Modes["Closest To Mouse"])
         if pred and SDK.Input:Cast(SDK.Enums.SpellSlot.E, pred.castPosition) then
             pred:Draw()
             self.flashQueue.pos = pos
@@ -284,9 +292,9 @@ end
 
 function Xerath:CastAntiGapE()
     local target, pred = self.ts:GetTarget(self.e, nil, nil, function(unit, pred)
-        local menuName = "antigap." .. unit:GetCharacterName() .. ".e"
-        return pred and pred.targetDashing and self.menu:Get(menuName)
-    end)
+            local menuName = "antigap." .. unit:GetCharacterName() .. ".e"
+            return pred and pred.targetDashing and self.menu:Get(menuName)
+        end)
     if not pred then
         return
     end
@@ -298,8 +306,8 @@ end
 
 function Xerath:CastR()
     local circleTarget, circlePred = self.ts:GetTarget(self.r, nil, function(unit)
-        return self:IsInRCircle(unit)
-    end)
+            return self:IsInRCircle(unit)
+        end)
     if circlePred then
         if circlePred.rates["slow"] then
             SDK.Input:Cast(SDK.Enums.SpellSlot.R, circlePred.castPosition)
@@ -404,7 +412,6 @@ function Xerath:CastSpells()
             return
         end
     end
-
 end
 
 Xerath:__init()

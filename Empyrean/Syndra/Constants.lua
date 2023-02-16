@@ -16,7 +16,7 @@ return {
         type = "circular",
         range = 950,
         speed = math.huge,
-        delay = 0.75,
+        delay = 0.01,
         radius = 220,
         useHeroSource = true,
     },
