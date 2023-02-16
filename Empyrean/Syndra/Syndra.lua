@@ -153,7 +153,7 @@ function Syndra:CastW2()
     local obj = self.om:GetHeld().obj
     local src = Utils.GetSourcePosition(obj)
     local pred, delay = self:GetWPred(src)
-    if not pred or not pred.rates["slow"] then
+    if not pred or not pred.rates["slow"] or SDK.NavMesh:IsWall(pred.castPosition) then
         return
     end
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, pred.castPosition) then
@@ -162,7 +162,6 @@ function Syndra:CastW2()
     SDK.PrintChat("W2 delay: " .. delay)
     pred:Draw()
     return true
-    -- TODO: wall checks
 end
 
 function Syndra:CastW2Old()
@@ -403,12 +402,10 @@ function Syndra:CastWEShort(useMouse)
         self.playerPos:Distance(checkPred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
     end
-    local iterPred, pushDist = self:GetQEShortIterPred(target)
-    if not iterPred then return end
-    local wPos = self.playerPos + (iterPred.castPosition - self.playerPos):Normalized() * pushDist
+    local wPos = checkPred.castPosition
     local ePos = self:GetQEAoeEPos(wPos)
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:CastFast(SDK.Enums.SpellSlot.E, ePos) then
-        iterPred:Draw()
+        checkPred:Draw()
         return true
     else
         print("SYNDRA: Cast WEShort fail")
@@ -420,13 +417,13 @@ function Syndra:CastWEAntigap()
             function(unit, pred)
                 return pred.targetDashing and
                     self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                    not SDK.NavMesh:IsWall(pred.targetPosition) and
                     self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
             end)
     if not pred then
         return
     end
-    local pushDist = self:GetEPushDist(pred)
-    local wPos = self.playerPos + (pred.castPosition - self.playerPos):Normalized() * pushDist
+    local wPos = pred.castPosition
     local ePos = self:GetQEAoeEPos(wPos)
     if SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:ForceCastFast(SDK.Enums.SpellSlot.E, ePos) then
         pred:Draw()

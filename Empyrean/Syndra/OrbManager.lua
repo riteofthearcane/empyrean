@@ -39,7 +39,7 @@ function OrbManager:_InitTables()
     self._queueHeldSearch = false
     self._queueHeldSearchTime = 0
     self._prevTickBuff = false
-    self._eBlacklist = {} -- should not E held orbs
+    self._eBlacklist = {} -- orbs pushed by E
     self._wBlacklist = {} -- should not W pushed orbs
     self.eLog = {}
 end
@@ -421,9 +421,11 @@ end
 
 ---@return SDK_VECTOR[]
 function OrbManager:GetEHitOrbs()
+    local held = self:GetHeld()
+    local heldObjNetId = held and held.isOrb and held.obj:GetNetworkId()
     local res = {}
     for uuid, orb in pairs(self._orbs) do
-        if orb.isInit and not self._eBlacklist[uuid] then
+        if orb.isInit and not self._eBlacklist[uuid] and orb.obj:GetNetworkId() ~= heldObjNetId then
             table.insert(res, orb.GetPos())
         end
     end
