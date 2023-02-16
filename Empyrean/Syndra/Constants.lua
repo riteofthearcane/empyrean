@@ -84,5 +84,8 @@ return {
     E_ENEMY_PUSH_MAX_RANGE = 850,
     GetEAngle = function()
         return myHero:GetSpell((SDK.Enums.SpellSlot.E)):GetName() == "SyndraE" and 56 or 84
+    end,
+    GetWDelay = function(src, dst)
+        return math.sqrt(src:Distance(dst)) / 43
     end
 }
