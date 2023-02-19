@@ -1,0 +1,9 @@
+[submodule "Builder/SdkProjectBuilder"]
+	path = Builder/SdkProjectBuilder
+	url = https://github.com/LeagueSDK/SdkProjectBuilder
+[submodule "Dependencies/LeagueSDK"]
+	path = Dependencies/LeagueSDK
+	url = https://github.com/LeagueSDK/LeagueSDK
+[submodule "Dependencies/DreamApi"]
+	path = Dependencies/DreamApi
+	url = https://github.com/LeagueSDK/DreamApi
