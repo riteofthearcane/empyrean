@@ -4,9 +4,8 @@ local SDK = require("LeagueSDK.LeagueSDK")
 ---@type SDK_AIHeroClient
 local myHero = SDK.Player
 
----@class DREAM_TS_INITIALIZER
-local DreamTSLib = _G.DreamTS or require("DreamTS")
-local DreamTS = DreamTSLib.TargetSelectorSdk
+local DreamLoader = require("Common.DreamLoader")
+local DreamTS = DreamLoader.Api.TargetSelector
 local Utils = require("Common.Utils")
 local SpellQueueManager = require("Common.SpellQueueManager")
 

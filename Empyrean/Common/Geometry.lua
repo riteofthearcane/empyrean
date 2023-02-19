@@ -9,6 +9,9 @@ local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
 
 local Geometry = {}
 
+local DreamLoader = require("Common.DreamLoader")
+local Prediction = DreamLoader.Api.Prediction
+
 local function VectorAngleBetweenFull(src, side1, side2)
     local p1, p2 = (-src + side1), (-src + side2)
     local theta = p1:Polar() - p2:Polar()
@@ -111,7 +114,7 @@ function Geometry.GetAutofollowPos(spellData, ts, dir)
         local pred = preds[target:GetNetworkId()]
         if not pred then goto continue end
         local endPos = src + dir * (spellData.range + target:GetBoundingRadius())
-        local col = _G.Prediction.SDK.IsCollision(spellData, src, endPos, target)
+        local col = Prediction.IsCollision(spellData, src, endPos, target)
         if not col then goto continue end
         local seg = LineSegment(src, endPos)
         local dist = seg:DistanceTo(pred.targetPosition)
