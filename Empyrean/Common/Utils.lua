@@ -100,12 +100,14 @@ local EQ_THRESHOLD = 1
 ---@param list number[]
 ---@return boolean
 function Utils.CheckForSame(list)
-    if #list >= 2 then
-        local last = list[#list]
-        for i = #list - 1, 1, -1 do
-            if math.abs(last - list[i]) < EQ_THRESHOLD then
-                return true
-            end
+    if #list <= 1 then
+        return false
+    end
+    local last = list[#list]
+    for i = #list - 1, 1, -1 do
+        local this = list[i]
+        if (this == math.huge and last == math.huge) or math.abs(last - this) < EQ_THRESHOLD then
+            return true
         end
     end
     return false
