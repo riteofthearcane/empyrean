@@ -1,3 +1,9 @@
+[submodule "DreamApi"]
+	path = Dependencies/DreamApi
+	url = git@github.com:LeagueSDK/DreamApi.git
 [submodule "LeagueSDK"]
-	path = LeagueSDK
+	path = Dependencies/LeagueSDK
 	url = git@github.com:LeagueSDK/LeagueSDK.git
+[submodule "SdkProjectBuilder"]
+	path = Builder/SdkProjectBuilder
+	url = git@github.com:LeagueSDK/SdkProjectBuilder.git

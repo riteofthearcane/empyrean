@@ -94,6 +94,10 @@ function Syndra:InitMenu()
     drawMenu:AddCheckbox("rCircle", "Draw R aim circle", false)
     -- drawMenu:AddCheckbox("rDmg", "Draw R damage", false)
     drawMenu:AddCheckbox("debug", "Draw debug", true)
+    local playgroundMenu = self.menu:AddSubMenu("playground", "Playground")
+    playgroundMenu:AddCheckbox("sbtw", "SBTW mode", false)
+    playgroundMenu:AddCheckbox("autoharass", "Auto-Harass", false)
+
     self.menu:Render()
 end
 
@@ -698,7 +702,7 @@ end
 function Syndra:LastHitUnkillableW1()
     if not ModernUOL then return end
     local range = myHero:AsAI():GetAttackRange() + myHero:GetBoundingRadius() + 55
-    local target = ModernUOL:GetSpellFarmTarget({ range = range, speed = math.huge, delay = 0, type = "AD" }, math.huge,
+    local target = ModernUOL:GetSpellFarmTarget({ range = range, speed = math.huge, delay = 0.1, type = "AP" }, math.huge,
             true)
     if not target then return end
     local targetSdk = SDK.Types.AIBaseClient(target)
@@ -731,7 +735,7 @@ function Syndra:CastSpells()
     local eMana = myHero:GetSpell(SDK.Enums.SpellSlot.E):GetManaCost()
     local curMana = myHero:AsAttackableUnit():GetMana()
     local hasE = self:HasEPred()
-    local eKey = self.menu:Get("e.e1")
+    local eKey = self.menu:Get("e.e1") or self.menu:Get("playground.sbtw")
     local useMouse = self.menu:Get("e.useMouse")
     self.debugText = self.debugText .. "E pred: " .. tostring(hasE) .. "\n"
     if eKey then
@@ -773,7 +777,7 @@ function Syndra:CastSpells()
     end
     self.debugText = self.debugText .. " reached combo\n"
     if isCombo and not (eKey and canE) then
-        -- if w and isW2 and self:CastW2() then return end
+        if w and isW2 and self:CastW2() then return end
         self.debugText = self.debugText .. " reached w1\n"
         self.debugText = self.debugText ..
             " w:" ..

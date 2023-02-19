@@ -1,0 +1,3 @@
+[submodule "PlatformBinaries"]
+	path = PlatformBinaries
+	url = git@github.com:LeagueSDK/PlatformBinaries.git

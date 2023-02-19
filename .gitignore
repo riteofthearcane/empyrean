@@ -1,10 +1,2 @@
-_process_config_.json
-corrupt_enc.exe
-encode.py
-process.py
-squish
-/*.lua
-DreamApi/*
-Common/*
+Builder/process.py
 __pycache__/*
-map.txt
