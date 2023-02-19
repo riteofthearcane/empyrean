@@ -5,6 +5,9 @@ local myHero = SDK.Player
 
 local Vector = SDK.Libs.Vector
 
+local DreamLoader = require("Common.DreamLoader")
+local Prediction = DreamLoader.Api.Prediction
+
 local ITEM_SLOTS =
 {
     SDK.Enums.SpellSlot.Item1,
@@ -123,7 +126,7 @@ end
 ---@param unit SDK_AIHeroClient
 ---@return SDK_VECTOR
 function Utils.GetSourcePosition(unit)
-    return _G.Prediction.SDK.GetUnitPosition(unit, SDK.Game:GetLatency() / 2000)
+    return Prediction.GetUnitPosition(unit, SDK.Game:GetLatency() / 2000)
     -- return _G.Prediction.SDK.GetTrueUnitPosition(unit, SDK.Game:GetLatency() / 2000)
 end
 

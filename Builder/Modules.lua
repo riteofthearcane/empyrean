@@ -28,6 +28,7 @@ Module "Common.NearestEnemyTracker" "Common/NearestEnemyTracker.lua"
 Module "Common.TapManager" "Common/TapManager.lua"
 Module "Common.LevelTracker" "Common/LevelTracker.lua"
 Module "Common.Debug" "Common/Debug.lua"
+Module "Common.DreamLoader" "Common/DreamLoader.lua"
 
 builder.SetupSdkModules(builder.Args)
 
