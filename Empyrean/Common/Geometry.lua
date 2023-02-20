@@ -5,7 +5,7 @@ local SDK = require("LeagueSDK.LeagueSDK")
 local myHero = SDK.Player
 
 local Utils = require("Common.Utils")
-local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
+local LineSegment = require("Common.LineSegment")
 
 local Geometry = {}
 
@@ -112,33 +112,34 @@ function Geometry.GetAutofollowPos(spellData, ts, dir)
     local src = Utils.GetSourcePosition(myHero)
     for _, target in ipairs(targets) do
         local pred = preds[target:GetNetworkId()]
-        if not pred then goto continue end
-        local endPos = src + dir * (spellData.range + target:GetBoundingRadius())
-        local col = Prediction.IsCollision(spellData, src, endPos, target)
-        if not col then goto continue end
-        local seg = LineSegment(src, endPos)
-        local dist = seg:DistanceTo(pred.targetPosition)
-        local diff = dir:Rotated(0, math.pi / 2, 0)
-        local hor = diff * dist
-        local pos1 = src + hor
-        local pos2 = src - hor
-        local adjustPos = pos1:Distance(pred.targetPosition) > pos2:Distance(pred.targetPosition) and pos2 or pos1
-        local movePos = adjustPos
-        local closeToCenter = false
-        -- if close to center, allow vertical movement
-        if dist <= target:GetBoundingRadius() + spellData.width / 2 then
-            closeToCenter = true
-            local mousePos = SDK.Renderer:GetMousePos3D()
-            local verDist = math.sqrt((target:GetBoundingRadius() + spellData.width / 2) ^ 2 - dist ^ 2)
-            local endPos2 = src - dir * (spellData.range + target:GetBoundingRadius())
-            local ver = endPos:Distance(mousePos) < endPos2:Distance(mousePos) and 1 or -1
-            movePos = adjustPos + ver * dir * verDist
+            if pred then
+            local endPos = src + dir * (spellData.range + target:GetBoundingRadius())
+            local col = Prediction.IsCollision(spellData, src, endPos, target)
+            if col then
+                local seg = LineSegment(src, endPos)
+                local dist = seg:DistanceTo(pred.targetPosition)
+                local diff = dir:Rotated(0, math.pi / 2, 0)
+                local hor = diff * dist
+                local pos1 = src + hor
+                local pos2 = src - hor
+                local adjustPos = pos1:Distance(pred.targetPosition) > pos2:Distance(pred.targetPosition) and pos2 or pos1
+                local movePos = adjustPos
+                local closeToCenter = false
+                -- if close to center, allow vertical movement
+                if dist <= target:GetBoundingRadius() + spellData.width / 2 then
+                    closeToCenter = true
+                    local mousePos = SDK.Renderer:GetMousePos3D()
+                    local verDist = math.sqrt((target:GetBoundingRadius() + spellData.width / 2) ^ 2 - dist ^ 2)
+                    local endPos2 = src - dir * (spellData.range + target:GetBoundingRadius())
+                    local ver = endPos:Distance(mousePos) < endPos2:Distance(mousePos) and 1 or -1
+                    movePos = adjustPos + ver * dir * verDist
+                end
+                if movePos then
+                    --TODO: wall can be issue
+                    return { pos = movePos, closeToCenter = closeToCenter }
+                end
+            end
         end
-        if movePos then
-            --TODO: wall can be issue
-            return { pos = movePos, closeToCenter = closeToCenter }
-        end
-        ::continue::
     end
     return { pos = nil, closeToCenter = false }
 end
