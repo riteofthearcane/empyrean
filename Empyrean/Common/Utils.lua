@@ -157,31 +157,29 @@ function Utils.DrawHealthBarDamage(damageFunc, range)
     local w = Utils.GetHealthBarWidth()
     local h = Utils.GetHealthBarHeight()
     for _, enemy in pairs(enemies) do
-        if not Utils.IsValidTarget(enemy) or myHero:GetPosition():Distance(enemy:GetPosition()) > range then
-            goto continue
+        if Utils.IsValidTarget(enemy) or myHero:GetPosition():Distance(enemy:GetPosition()) > range then
+            local damage = damageFunc(enemy)
+            local healthAfter = enemy:GetHealth() + enemy:GetShieldAll() - damage
+            local canExecute = healthAfter <= damage
+            local bar = enemy:AsAI():GetHealthBarScreenPos()
+            if canExecute then
+                local color = Utils.COLOR_RED
+                local p1 = bar
+                local p2 = bar + Vector(w, 0, 0)
+                local p3 = bar + Vector(w, h, 0)
+                local p4 = bar + Vector(0, h, 0)
+                SDK.Renderer:DrawLine(p1, p2, color)
+                SDK.Renderer:DrawLine(p2, p3, color)
+                SDK.Renderer:DrawLine(p3, p4, color)
+                SDK.Renderer:DrawLine(p4, p1, color)
+            else
+                local color = Utils.COLOR_RED
+                local xOffset = w * (healthAfter / enemy:GetMaxHealth())
+                local p1 = bar + Vector(xOffset, 0, 0)
+                local p2 = bar + Vector(xOffset, h, 0)
+                SDK.Renderer:DrawLine(p1, p2, color)
+            end
         end
-        local damage = damageFunc(enemy)
-        local healthAfter = enemy:GetHealth() + enemy:GetShieldAll() - damage
-        local canExecute = healthAfter <= damage
-        local bar = enemy:AsAI():GetHealthBarScreenPos()
-        if canExecute then
-            local color = Utils.COLOR_RED
-            local p1 = bar
-            local p2 = bar + Vector(w, 0, 0)
-            local p3 = bar + Vector(w, h, 0)
-            local p4 = bar + Vector(0, h, 0)
-            SDK.Renderer:DrawLine(p1, p2, color)
-            SDK.Renderer:DrawLine(p2, p3, color)
-            SDK.Renderer:DrawLine(p3, p4, color)
-            SDK.Renderer:DrawLine(p4, p1, color)
-        else
-            local color = Utils.COLOR_RED
-            local xOffset = w * (healthAfter / enemy:GetMaxHealth())
-            local p1 = bar + Vector(xOffset, 0, 0)
-            local p2 = bar + Vector(xOffset, h, 0)
-            SDK.Renderer:DrawLine(p1, p2, color)
-        end
-        ::continue::
     end
 end
 

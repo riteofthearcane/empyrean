@@ -14,7 +14,7 @@ local OrbManager = require("Syndra.OrbManager")
 local Constants = require("Syndra.Constants")
 local Geometry = require("Common.Geometry")
 local enemies = SDK.ObjectManager:GetEnemyHeroes()
-local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
+local LineSegment = require("Common.LineSegment")
 local ModernUOL = SDK:GetPlatform() == "FF15" and require("ModernUOL") or nil
 local Debug = require("Common.Debug")
 
@@ -81,11 +81,15 @@ function Syndra:InitMenu()
     rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
     rMenu:AddSlider("circle", "R aim circle radius", { min = 100, max = 500, default = 200, step = 100 })
     local antigapMenu = self.menu:AddSubMenu("antigap", "Anti-Gap")
+    local exists = {}
     for _, enemy in pairs(enemies) do
         local charName = enemy:GetCharacterName()
-        local charMenu = antigapMenu:AddSubMenu(charName, charName)
-        charMenu:AddCheckbox("stun", "Stun", true)
-        charMenu:AddCheckbox("push", "Push", false)
+        if not exists[charName] then
+            local charMenu = antigapMenu:AddSubMenu(charName, charName)
+            charMenu:AddCheckbox("stun", "Stun", true)
+            charMenu:AddCheckbox("push", "Push", false)
+            exists[charName] = true
+        end
     end
     local drawMenu = self.menu:AddSubMenu("draw", "Draw")
     drawMenu:AddCheckbox("q", "Draw Q range", true)

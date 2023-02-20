@@ -6,7 +6,7 @@ local myHero = SDK.Player
 
 local Utils = require("Common.Utils")
 local Constants = require("Syndra.Constants")
-local LineSegment = require("LeagueSDK.Api.Common.LineSegment")
+local LineSegment = require("Common.LineSegment")
 
 ---@class Empyrean.Syndra.OrbManager
 local OrbManager = require("Common.Utils").Class()
@@ -92,9 +92,12 @@ end
 
 ---@param obj SDK_GameObject
 ---@param netId number
-function OrbManager:_OnDeleteObject(obj, netId)
-    if IsOrb(obj) then
-        self:_HandleOrbObjDelete(netId)
+function OrbManager:_OnDeleteObject(obj)
+    for uuid, orb in pairs(self._orbs) do
+        if orb.netId == obj:GetNetworkId() then
+            self._orbs[uuid] = nil
+            return
+        end
     end
 end
 
