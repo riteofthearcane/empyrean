@@ -345,7 +345,7 @@ function Xerath:InvokeFlash()
     if SDK.Game:GetTime() < self.flashQueue.time then
         return
     end
-    local slot = Utils.GetSummonerSlot("SummonerFlash")
+    local slot = Utils.GetSummonerSlot("summonerflash")
     local f = slot and myHero:CanUseSpell(slot)
     if f and SDK.Input:Cast(slot, self.flashQueue.pos) then
         self.flashQueue.pos = nil
@@ -389,7 +389,7 @@ function Xerath:CastSpells()
         return
     end
 
-    local slot = Utils.GetSummonerSlot("SummonerFlash")
+    local slot = Utils.GetSummonerSlot("summonerflash")
     local f = slot and myHero:CanUseSpell(slot)
     if e and f and self.tm:GetDoubleTap() and self.lt:ShouldCast() and self:CastEFlash() then
         return

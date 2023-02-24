@@ -52,7 +52,7 @@ Utils.COLOR_BLUE = SDK.Libs.Color.GetD3DColor(255, 0, 0, 255)
 ---@return number | nil
 function Utils.GetItemSlot(item)
     for _, slot in pairs(ITEM_SLOTS) do
-        if myHero:GetSpell(slot):GetName() == item then
+        if string.lower(myHero:GetSpell(slot):GetName()) == item then
             return slot
         end
     end
@@ -63,7 +63,7 @@ end
 ---@return number | nil
 function Utils.GetSummonerSlot(summoner)
     for _, slot in pairs(SUMMONER_SLOTS) do
-        if myHero:GetSpell(slot):GetName() == summoner then
+        if string.lower(myHero:GetSpell(slot):GetName()) == summoner then
             return slot
         end
     end

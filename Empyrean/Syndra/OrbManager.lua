@@ -15,7 +15,8 @@ local Debug = require("Common.Debug")
 local W_BUFF = "syndrawtooltip"
 
 local function IsOrb(obj)
-    return obj:GetName() == "Seed" and obj:GetTeam() == myHero:GetTeam() and obj:AsAI():GetCharacterName() == "SyndraSphere"
+    return string.lower(obj:GetName()) == "seed" and obj:GetTeam() == myHero:GetTeam() and
+        string.lower(obj:AsAI():GetCharacterName()) == "syndrasphere"
 end
 
 
@@ -32,7 +33,7 @@ function OrbManager:_InitTables()
     }
     self._fasterHeld = {
         obj = nil,
-        isOrb = false, 
+        isOrb = false,
         time = SDK.Game:GetTime(),
         active = false
     }
@@ -206,7 +207,7 @@ function OrbManager:_CheckEPushedOrbs(pos)
         end
     end
 end
- 
+
 function OrbManager:_MoveOrbToEBlacklist(obj)
     for uuid, orb in pairs(self._orbs) do
         if orb.netId == obj:GetNetworkId() then
@@ -228,11 +229,12 @@ function OrbManager:_OnProcessSpell(obj, cast)
     if obj:GetNetworkId() ~= myHero:GetNetworkId() then
         return
     end
-    if cast:GetName() == "SyndraQ" or cast:GetName() == "SyndraQUpgrade" then
+    local lower = string.lower(cast:GetName())
+    if lower == "syndraq" or lower == "syndraqupgrade" then
         self:_HandleOrbCast(cast:GetEndPos())
         return
     end
-    if cast:GetName() == "SyndraE" or cast:GetName() == "SyndraE5" then
+    if lower == "syndrae" or lower == "syndrae5" then
         self.qCast = SDK.Game:GetTime()
         self:_CheckEPushedOrbs(cast:GetEndPos())
         return
@@ -278,7 +280,7 @@ function OrbManager:GetGrabTarget()
     local lowMinion = nil
     local minions = SDK.ObjectManager:GetEnemyMinions()
     for _, minion in ipairs(minions) do
-        if Constants.W_GRAB_OBJS[minion:AsAI():GetCharacterName()] and Utils.IsValidTarget(minion) then
+        if Constants.W_GRAB_OBJS[string.lower(minion:AsAI():GetCharacterName())] and Utils.IsValidTarget(minion) then
             local dist = myHero:GetPosition():Distance(minion:GetPosition())
             if dist < Constants.W_GRAB_RANGE then
                 lowMinion = minion
@@ -330,7 +332,7 @@ function OrbManager:_ManagerFasterHeld()
             obj = nil,
             isOrb = false,
             time = 0,
-            active = false, 
+            active = false,
         }
     elseif SDK.Game:GetTime() - self._fasterHeld.time > 0.25 then
         self._fasterHeld.active = true
@@ -357,7 +359,7 @@ end
 
 function OrbManager:_HandleHeldBuff()
     local buff = myHero:AsAI():GetBuff(W_BUFF)
-    local hasBuff = buff ~= nil
+    local hasBuff = buff and buff:GetRemainingTime() > 0
     if hasBuff == self._prevTickBuff then
         return
     end
@@ -379,9 +381,9 @@ end
 ---@return table{obj=SDK_GameObject | nil, isOrb=boolean} | nil
 function OrbManager:GetHeld()
     if self._held.obj then
-        return {obj = self._held.obj, isOrb = self._held.isOrb}
+        return { obj = self._held.obj, isOrb = self._held.isOrb }
     elseif self._fasterHeld.obj and self._fasterHeld.active then
-        return {obj = self._fasterHeld.obj, isOrb = self._fasterHeld.isOrb}
+        return { obj = self._fasterHeld.obj, isOrb = self._fasterHeld.isOrb }
     end
 end
 

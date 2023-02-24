@@ -225,7 +225,7 @@ function Ahri:CastAntiGapE()
 end
 
 function Ahri:GetEfSlot()
-    return Utils.GetItemSlot("6656Cast")
+    return Utils.GetItemSlot("6656cast")
 end
 
 function Ahri:CastEf()
@@ -321,7 +321,7 @@ function Ahri:InvokeFlash()
     if SDK.Game:GetTime() < self.flashQueue.time then
         return
     end
-    local slot = Utils.GetSummonerSlot("SummonerFlash")
+    local slot = Utils.GetSummonerSlot("summonerflash")
     local f = slot and myHero:CanUseSpell(slot)
     if f and SDK.Input:Cast(slot, self.flashQueue.pos) then
         self.flashQueue.pos = nil
@@ -351,7 +351,7 @@ function Ahri:CastSpells()
         return
     end
 
-    local slot = Utils.GetSummonerSlot("SummonerFlash")
+    local slot = Utils.GetSummonerSlot("summonerflash")
     local f = slot and myHero:CanUseSpell(slot)
     if e and f and self.lt:ShouldCast() and self.tm:GetDoubleTap() and self:CastEFlash() then
         return

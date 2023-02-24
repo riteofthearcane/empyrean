@@ -20,8 +20,9 @@ end
 ---@param obj SDK_AIBaseClient
 ---@param cast SDK_SpellCast
 function LastAutoTracker:_OnBasicAttack(obj, cast)
-    if obj:GetNetworkId() == myHero:GetNetworkId() and string.find(cast:GetName(), "Ahri") and
-        string.find(cast:GetName(), "Attack") and
+    local lower = string.lower(cast:GetName())
+    if obj:GetNetworkId() == myHero:GetNetworkId() and string.find(lower, "ahri") and
+        string.find(lower, "attack") and
         cast:GetTarget():IsHero() then
         self.data.time = SDK.Game:GetTime()
         self.data.target = obj:GetNetworkId()

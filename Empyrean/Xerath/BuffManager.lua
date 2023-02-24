@@ -4,8 +4,8 @@ local SDK = require("LeagueSDK.LeagueSDK")
 ---@type SDK_AIHeroClient
 local myHero = SDK.Player
 
-local Q_BUFF = "XerathArcanopulseChargeUp"
-local R_BUFF = "XerathLocusOfPower2"
+local Q_BUFF = "xeratharcanopulsechargeUp"
+local R_BUFF = "xerathlocusofpower2"
 local ModernUOL = require("ModernUOL")
 
 

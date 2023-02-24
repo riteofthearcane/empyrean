@@ -62,7 +62,7 @@ function Syndra:InitFields()
 end
 
 function Syndra:InitMenu()
-    self.menu = SDK.Libs.Menu("syndraEmpyrean", "Syndra - Empyrean")
+    self.menu = SDK.Libs.Menu("syndraEmpyrean", "Syndra - Empyrean")    
     self.menu:AddLabel("Syndra - Empyrean v: " .. self.version, true)
     self.menu:AddSubMenu("dreamTs", "Target Selector")
     local qMenu = self.menu:AddSubMenu("q", "Q: Dark Sphere")
@@ -76,7 +76,7 @@ function Syndra:InitMenu()
     eMenu:AddKeybind("e2", "E Stun Key (requires orbs on ground)", string.byte("Z"))
     local rMenu = self.menu:AddSubMenu("r", "R: Unleashed Power")
     rMenu:AddKeybind("rExecute", "Use key of choice to cast R to execute", string.byte("A"))
-    rMenu:AddCheckbox("toggle", "Use LMB/above key as toggle", false)
+    rMenu:AddCheckbox("toggle", "Use above key as toggle", false)
     rMenu:AddLabel("If above is toggle, will turn off after r usage")
     rMenu:AddKeybind("r", "R Key (closest enemy inside reticle)", string.byte("R"))
     rMenu:AddSlider("circle", "R aim circle radius", { min = 100, max = 500, default = 200, step = 100 })
@@ -99,7 +99,7 @@ function Syndra:InitMenu()
     drawMenu:AddCheckbox("debug", "Draw debug", true)
     local playgroundMenu = self.menu:AddSubMenu("playground", "Playground")
     playgroundMenu:AddCheckbox("sbtw", "SBTW mode", false)
-    playgroundMenu:AddCheckbox("autoharass", "Auto-Harass", false)
+    -- playgroundMenu:AddCheckbox("autoharass", "Auto-Harass", false)
 
     self.menu:Render()
 end
@@ -315,7 +315,7 @@ end
 function Syndra:GetQEShortIterPred(enemy)
     local eMod = setmetatable({ delay = 0.30 }, { __index = Constants.E })
     local l = {}
-    local resPred = nil
+    local resPred = nil 
     local pushDist = 0
     while true do
         _, resPred = self.ts:GetTarget(eMod, nil, nil,
@@ -499,7 +499,6 @@ function Syndra:CastWELong(useMouse)
     local obj = self.om:GetHeld().obj
     local src = Utils.GetSourcePosition(obj)
     local srcToPos = src:Distance(wPos)
-    SDK.PrintChat("srcToPos: " .. srcToPos)
     local ePos = self:GetQEAoeEPos(wPos)
     if SDK.Input:CastFast(SDK.Enums.SpellSlot.W, wPos) and SDK.Input:CastFast(SDK.Enums.SpellSlot.E, ePos) then
         iterPred:Draw()
@@ -553,7 +552,7 @@ end
 function Syndra:CastAntigap(canQe, canWe, e)
     if not canQe and not canWe and not e then return end
     local hasOrb = self.om:GetHeld() and self.om:GetHeld().isOrb
-    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:HasHeld()
+    local isW1 = string.lower(myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName()) == "syndraw" and not self.om:HasHeld()
     if canWe and hasOrb and self:CastWEAntigap() then
         return true
     end
@@ -630,9 +629,6 @@ function Syndra:CastEStun()
     if #hitPosTable == 0 then return end
     local res = Geometry.BestAoeConic(self.playerPos, Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
             hitPosTable)
-    if not res then
-        print('WTF no EPOS')
-    end
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.E, res.pos) then return end
     return true
 end
@@ -726,9 +722,10 @@ function Syndra:CastSpells()
     local isHarass = SDK.Libs.Orbwalker:IsHarassMode()
     local isLasthit = SDK.Libs.Orbwalker:IsLastHitMode()
     local q = myHero:CanUseSpell(SDK.Enums.SpellSlot.Q) and self.slm:ShouldCast()
-    local isW1 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraW" and not self.om:HasHeld() and
+    local wName = string.lower(myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName())
+    local isW1 = wName == "syndraw" and not self.om:HasHeld() and
         self.slm:ShouldCast()
-    local isW2 = myHero:GetSpell(SDK.Enums.SpellSlot.W):GetName() == "SyndraWCast" and self.om:HasHeld() and
+    local isW2 = wName == "syndrawcast" and self.om:HasHeld() and
         self.slm:ShouldCast()
     local w = myHero:CanUseSpell(SDK.Enums.SpellSlot.W) and (isW1 or isW2)
     local e = myHero:CanUseSpell(SDK.Enums.SpellSlot.E) and self.slm:ShouldCast()
@@ -738,7 +735,7 @@ function Syndra:CastSpells()
     local eMana = myHero:GetSpell(SDK.Enums.SpellSlot.E):GetManaCost()
     local curMana = myHero:AsAttackableUnit():GetMana()
     local hasE = self:HasEPred()
-    local eKey = self.menu:Get("e.e1") or self.menu:Get("playground.sbtw")
+    local eKey = self.menu:Get("e.e1") or (self.menu:Get("playground.sbtw") and isCombo)
     local useMouse = self.menu:Get("e.useMouse")
     self.debugText = self.debugText .. "E pred: " .. tostring(hasE) .. "\n"
     if eKey then
