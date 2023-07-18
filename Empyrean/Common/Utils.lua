@@ -32,15 +32,15 @@ local Utils = {}
 
 function Utils.Class()
     return setmetatable({}, {
-            __call = function(self, ...)
-                local result = setmetatable({}, {
-                        __index = self
-                    })
-                result:_init(...)
+        __call = function(self, ...)
+            local result = setmetatable({}, {
+                __index = self
+            })
+            result:_init(...)
 
-                return result
-            end
-        })
+            return result
+        end
+    })
 end
 
 Utils.COLOR_WHITE = SDK.Libs.Color.GetD3DColor(255, 255, 255, 255)
@@ -138,45 +138,77 @@ end
 ---@param target SDK_AIHeroClient
 ---@return SDK_VECTOR
 function Utils.GetHealthBarStartPos(target)
+    local x = SDK.Renderer:GetResolution().x
+    local y = SDK.Renderer:GetResolution().y
     local barPos = target:AsAI():GetHealthBarScreenPos()
-    -- TODO: finish this
-    return barPos
+    if x == 3840 and y == 2160 then
+        return Vector(barPos.x - 84, barPos.y - 44, barPos.z)
+    end
+    if x == 2560 and y == 1440 then
+        return Vector(barPos.x - 57, barPos.y - 31, barPos.z)
+    end
+    if x == 1920 and y == 1080 then
+        return Vector(barPos.x - 48, barPos.y - 26, barPos.z)
+    end
+    return Vector(barPos.x - 48, barPos.y - 26, barPos.z)
 end
 
 ---@return number
 function Utils.GetHealthBarWidth()
-    local resolution = SDK.Renderer:GetResolution()
+    local x = SDK.Renderer:GetResolution().x
+    local y = SDK.Renderer:GetResolution().y
+    if x == 3840 and y == 2160 then
+        return 194
+    end
+    if x == 2560 and y == 1440 then
+        return 130
+    end
+    if x == 1920 and y == 1080 then
+        return 109
+    end
+    return 109
 end
 
 ---@return number
 function Utils.GetHealthBarHeight()
-
+    local x = SDK.Renderer:GetResolution().x
+    local y = SDK.Renderer:GetResolution().y
+    if x == 3840 and y == 2160 then
+        return 35
+    end
+    if x == 2560 and y == 1440 then
+        return 25
+    end
+    if x == 1920 and y == 1080 then
+        return 20
+    end
+    return 20
 end
 
 function Utils.DrawHealthBarDamage(damageFunc, range)
     local w = Utils.GetHealthBarWidth()
     local h = Utils.GetHealthBarHeight()
     for _, enemy in pairs(enemies) do
-        if Utils.IsValidTarget(enemy) or myHero:GetPosition():Distance(enemy:GetPosition()) > range then
+        if Utils.IsValidTarget(enemy) and myHero:GetPosition():Distance(enemy:GetPosition()) < range then
             local damage = damageFunc(enemy)
             local healthAfter = enemy:GetHealth() + enemy:GetShieldAll() - damage
-            local canExecute = healthAfter <= damage
-            local bar = enemy:AsAI():GetHealthBarScreenPos()
+            local canExecute = healthAfter <= 0
+            local bar = Utils.GetHealthBarStartPos(enemy)
             if canExecute then
                 local color = Utils.COLOR_RED
                 local p1 = bar
-                local p2 = bar + Vector(w, 0, 0)
-                local p3 = bar + Vector(w, h, 0)
-                local p4 = bar + Vector(0, h, 0)
+                local p2 = Vector(bar.x + w, bar.y, 0)
+                local p3 = Vector(bar.x + w, bar.y + h, 0)
+                local p4 = Vector(bar.x, bar.y + h, 0)
                 SDK.Renderer:DrawLine(p1, p2, color)
                 SDK.Renderer:DrawLine(p2, p3, color)
                 SDK.Renderer:DrawLine(p3, p4, color)
                 SDK.Renderer:DrawLine(p4, p1, color)
             else
-                local color = Utils.COLOR_RED
+                local color = Utils.COLOR_GREEN
                 local xOffset = w * (healthAfter / enemy:GetMaxHealth())
-                local p1 = bar + Vector(xOffset, 0, 0)
-                local p2 = bar + Vector(xOffset, h, 0)
+                local p1 = Vector(bar.x + xOffset, bar.y, bar.z)
+                local p2 = Vector(bar.x + xOffset, bar.y + h, bar.z)
                 SDK.Renderer:DrawLine(p1, p2, color)
             end
         end
@@ -186,9 +218,9 @@ end
 function Utils.Uuid()
     local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
     return string.gsub(template, '[xy]', function(c)
-            local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
-            return string.format('%x', v)
-        end)
+        local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
+        return string.format('%x', v)
+    end)
 end
 
 return Utils

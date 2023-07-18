@@ -37,8 +37,8 @@ function Syndra:InitFields()
 
     ---@type Empyrean.Common.SpellLockManager
     self.slm = SpellLockManager({
-            SyndraW = 0.25,
-        })
+        SyndraW = 0.25,
+    })
     ---@type Empyrean.Common.LevelTracker
     self.lt = LevelTracker()
 
@@ -62,7 +62,7 @@ function Syndra:InitFields()
 end
 
 function Syndra:InitMenu()
-    self.menu = SDK.Libs.Menu("syndraEmpyrean", "Syndra - Empyrean")    
+    self.menu = SDK.Libs.Menu("syndraEmpyrean", "Syndra - Empyrean")
     self.menu:AddLabel("Syndra - Empyrean v: " .. self.version, true)
     self.menu:AddSubMenu("dreamTs", "Target Selector")
     local qMenu = self.menu:AddSubMenu("q", "Q: Dark Sphere")
@@ -95,7 +95,7 @@ function Syndra:InitMenu()
     drawMenu:AddCheckbox("q", "Draw Q range", true)
     drawMenu:AddCheckbox("e", "Draw E range", true)
     drawMenu:AddCheckbox("rCircle", "Draw R aim circle", false)
-    -- drawMenu:AddCheckbox("rDmg", "Draw R damage", false)
+    drawMenu:AddCheckbox("rDmg", "Draw R damage", false)
     drawMenu:AddCheckbox("debug", "Draw debug", true)
     local playgroundMenu = self.menu:AddSubMenu("playground", "Playground")
     playgroundMenu:AddCheckbox("sbtw", "SBTW mode", false)
@@ -124,7 +124,7 @@ function Syndra:GetW2IterPred(enemy, src)
     local pred = nil
     while not res do
         _, pred = self.ts:GetTarget(wMod, nil,
-                function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
+            function(unit) return unit:GetNetworkId() == enemy:GetNetworkId() end)
         if not pred then
             return nil, nil
         end
@@ -139,15 +139,15 @@ function Syndra:GetWPred(src)
     local wMod = setmetatable({}, { __index = Constants.W })
     local resDelay = 0
     local target, pred = self.ts:GetTarget(wMod, nil, function(unit)
-            local _, delay = self:GetW2IterPred(unit, src)
-            if not delay then return false end
-            wMod.delay = delay
-            resDelay = delay
-            return true
-        end, function(_, _)
-            wMod.delay = Constants.W.delay
-            return true
-        end)
+        local _, delay = self:GetW2IterPred(unit, src)
+        if not delay then return false end
+        wMod.delay = delay
+        resDelay = delay
+        return true
+    end, function(_, _)
+        wMod.delay = Constants.W.delay
+        return true
+    end)
     return pred, resDelay
 end
 
@@ -188,7 +188,7 @@ function Syndra:GetQEAoeEPos(qPos)
         table.insert(posTable, { pos = orbPos, isPrio = false })
     end
     local res = Geometry.BestAoeConic(self.playerPos, Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
-            posTable)
+        posTable)
     if not res then
         print('WTF no EPOS')
     end
@@ -204,10 +204,10 @@ function Syndra:GetQELongIterPred(enemy)
     local resPred = nil
     while true do
         _, resPred = self.ts:GetTarget(eMod, nil, nil,
-                function(unit, pred)
-                    return unit:GetNetworkId() == enemy:GetNetworkId() and
-                        Utils.IsValidPred(pred, eMod, unit)
-                end)
+            function(unit, pred)
+                return unit:GetNetworkId() == enemy:GetNetworkId() and
+                    Utils.IsValidPred(pred, eMod, unit)
+            end)
         if not resPred then
             return
         end
@@ -238,10 +238,10 @@ function Syndra:GetWELongIterPred(enemy)
     local resPred = nil
     while not res do
         _, resPred = self.ts:GetTarget(eMod, nil, nil,
-                function(unit, pred)
-                    return unit:GetNetworkId() == enemy:GetNetworkId() and
-                        Utils.IsValidPred(pred, eMod, unit)
-                end)
+            function(unit, pred)
+                return unit:GetNetworkId() == enemy:GetNetworkId() and
+                    Utils.IsValidPred(pred, eMod, unit)
+            end)
         if not resPred then
             return
         end
@@ -273,7 +273,7 @@ end
 
 function Syndra:HasEPred()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred) return Utils.IsValidPred(checkPred, Constants.E, unit) end)
+        function(unit, checkPred) return Utils.IsValidPred(checkPred, Constants.E, unit) end)
     return pred ~= nil
 end
 
@@ -291,10 +291,10 @@ function Syndra:CastQELong(useMouse)
     local closest = self.nem:GetTarget()
     if useMouse and not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred)
-                return (not useMouse or closest:GetNetworkId() == unit:GetNetworkId()) and
-                    Utils.IsValidPred(checkPred, Constants.E, unit)
-            end)
+        function(unit, checkPred)
+            return (not useMouse or closest:GetNetworkId() == unit:GetNetworkId()) and
+                Utils.IsValidPred(checkPred, Constants.E, unit)
+        end)
     if not pred or not pred.rates["slow"] or
         self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -315,14 +315,14 @@ end
 function Syndra:GetQEShortIterPred(enemy)
     local eMod = setmetatable({ delay = 0.30 }, { __index = Constants.E })
     local l = {}
-    local resPred = nil 
+    local resPred = nil
     local pushDist = 0
     while true do
         _, resPred = self.ts:GetTarget(eMod, nil, nil,
-                function(unit, pred)
-                    return unit:GetNetworkId() == enemy:GetNetworkId() and
-                        Utils.IsValidPred(pred, eMod, unit)
-                end)
+            function(unit, pred)
+                return unit:GetNetworkId() == enemy:GetNetworkId() and
+                    Utils.IsValidPred(pred, eMod, unit)
+            end)
         if not resPred then
             SDK.PrintChat("SYNDRA: Iterpred QE Short fail with width - " .. eMod.width)
             return nil, nil
@@ -341,10 +341,10 @@ end
 
 function Syndra:CastQEShort(useMouse)
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred)
-                return (not useMouse or self.nem:IsTarget(unit)) and
-                    Utils.IsValidPred(checkPred, Constants.E, unit)
-            end)
+        function(unit, checkPred)
+            return (not useMouse or self.nem:IsTarget(unit)) and
+                Utils.IsValidPred(checkPred, Constants.E, unit)
+        end)
     self.debugText = self.debugText .. "looking at QE short\n"
     if not pred then
         self.debugText = self.debugText .. "no pred\n"
@@ -392,11 +392,11 @@ end
 function Syndra:CastQEAntigap()
     local eMod = setmetatable({ delay = 0.33 }, { __index = Constants.E })
     local target, pred = self.ts:GetTarget(eMod, nil, nil,
-            function(unit, checkPred)
-                return checkPred.targetDashing and
-                    self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
-                    self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
-            end)
+        function(unit, checkPred)
+            return checkPred.targetDashing and
+                self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
+        end)
     if not pred then
         return
     end
@@ -414,10 +414,10 @@ end
 function Syndra:CastWEShort(useMouse)
     local eMod = setmetatable({ delay = 0.33 }, { __index = Constants.E })
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred)
-                return (not useMouse or self.nem:IsTarget(unit)) and
-                    Utils.IsValidPred(checkPred, Constants.E, unit)
-            end)
+        function(unit, checkPred)
+            return (not useMouse or self.nem:IsTarget(unit)) and
+                Utils.IsValidPred(checkPred, Constants.E, unit)
+        end)
     if not pred or not pred.rates["slow"] or
         self.playerPos:Distance(pred.targetPosition) > Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -445,12 +445,12 @@ end
 
 function Syndra:CastWEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred)
-                return checkPred.targetDashing and
-                    self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
-                    not SDK.NavMesh:IsWall(checkPred.targetPosition) and
-                    self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
-            end)
+        function(unit, checkPred)
+            return checkPred.targetDashing and
+                self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                not SDK.NavMesh:IsWall(checkPred.targetPosition) and
+                self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
+        end)
     if not pred then
         return
     end
@@ -463,12 +463,12 @@ function Syndra:CastWEAntigap()
     if wTime > eTime + 0.07 or playerToCast > 500 then
         local eMod = setmetatable({ delay = 0.33 }, { __index = Constants.E })
         target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-                function(unit, checkPred)
-                    return checkPred.targetDashing and
-                        self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
-                        not SDK.NavMesh:IsWall(checkPred.targetPosition) and
-                        self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
-                end)
+            function(unit, checkPred)
+                return checkPred.targetDashing and
+                    self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                    not SDK.NavMesh:IsWall(checkPred.targetPosition) and
+                    self.menu:Get("antigap." .. unit:GetCharacterName() .. ".stun")
+            end)
         local pushDist = self:GetEPushDist(pred)
         wPos = self.playerPos + (pred.castPosition - self.playerPos):Normalized() * pushDist
     end
@@ -485,10 +485,10 @@ function Syndra:CastWELong(useMouse)
     local closest = self.nem:GetTarget()
     if useMouse and not closest then return end
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred)
-                return (not useMouse or closest:GetNetworkId() == unit:GetNetworkId()) and
-                    Utils.IsValidPred(checkPred, Constants.E, unit)
-            end)
+        function(unit, checkPred)
+            return (not useMouse or closest:GetNetworkId() == unit:GetNetworkId()) and
+                Utils.IsValidPred(checkPred, Constants.E, unit)
+        end)
     if not pred or not pred.rates["slow"] or
         self.playerPos:Distance(pred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE then
         return
@@ -510,11 +510,11 @@ end
 
 function Syndra:CastEAntigap()
     local target, pred = self.ts:GetTarget(Constants.E, nil, nil,
-            function(unit, checkPred)
-                return checkPred.targetDashing and
-                    self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
-                    self.menu:Get("antigap." .. unit:GetCharacterName() .. ".push")
-            end)
+        function(unit, checkPred)
+            return checkPred.targetDashing and
+                self.playerPos:Distance(checkPred.targetPosition) < Constants.E_ENEMY_CONTACT_RANGE and
+                self.menu:Get("antigap." .. unit:GetCharacterName() .. ".push")
+        end)
     if not pred then
         return
     end
@@ -530,23 +530,23 @@ end
 
 function Syndra:OnDraw()
     if self.menu:Get('draw.debug') then
-        SDK.Renderer:DrawText(self.debugText, 10, SDK.Renderer:WorldToScreen(self.playerPos, 0), Utils.COLOR_WHITE)
+        SDK.Renderer:DrawText(self.debugText, 10, SDK.Renderer:WorldToScreen(myHero:GetPosition(), 0), Utils.COLOR_WHITE)
     end
     local color = self.toggleState and Utils.COLOR_GREEN or Utils.COLOR_WHITE
     if self.menu:Get("draw.q") then
-        SDK.Renderer:DrawCircle3D(self.playerPos, Constants.Q.range, color)
+        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.Q.range, color)
     end
     if self.menu:Get("draw.e") then
         -- local color = self.menu:Get("e.e1") and Utils.COLOR_RED or Utils.COLOR_WHITE
-        SDK.Renderer:DrawCircle3D(self.playerPos, Constants.E.range, color)
+        SDK.Renderer:DrawCircle3D(myHero:GetPosition(), Constants.E.range, color)
     end
     if self.menu:Get("draw.rCircle") then
         SDK.Renderer:DrawCircle3D(SDK.Renderer:GetMousePos3D(), self.menu:Get("r.circle"), color)
     end
     local r = myHero:CanUseSpell(SDK.Enums.SpellSlot.R)
-    -- if r and self.menu:Get("draw.rDmg") then
-    --     Utils.DrawHealthBarDamage(self.GetRDamage, 2500)
-    -- end
+    if r and self.menu:Get("draw.rDmg") then
+        Utils.DrawHealthBarDamage(function(unit) return self:GetRDamage(unit) end, 2500)
+    end
 end
 
 function Syndra:CastAntigap(canQe, canWe, e)
@@ -574,10 +574,10 @@ function Syndra:GetEPushIterPred(enemy, orbPos)
     local resPred = nil
     while not res do
         _, resPred = self.ts:GetTarget(eMod, nil, nil,
-                function(unit, pred)
-                    return unit:GetNetworkId() == enemy:GetNetworkId() and
-                        Utils.IsValidPred(pred, eMod, unit)
-                end)
+            function(unit, pred)
+                return unit:GetNetworkId() == enemy:GetNetworkId() and
+                    Utils.IsValidPred(pred, eMod, unit)
+            end)
         if not resPred then
             return
         end
@@ -599,8 +599,8 @@ function Syndra:CastEStun()
     local hitPosTable = {}
     if #orbPosTable == 0 then return end
     local targets, preds = self.ts:GetTargets(Constants.E, nil, nil, function(unit, pred)
-            return Utils.IsValidPred(pred, Constants.E, unit)
-        end)
+        return Utils.IsValidPred(pred, Constants.E, unit)
+    end)
     if #targets == 0 then return end
     local hasOnePrio = false
     for _, orbPos in ipairs(orbPosTable) do
@@ -628,7 +628,7 @@ function Syndra:CastEStun()
     if not hasOnePrio then return end
     if #hitPosTable == 0 then return end
     local res = Geometry.BestAoeConic(self.playerPos, Constants.E_ORB_CONTACT_RANGE, Constants:GetEAngle(),
-            hitPosTable)
+        hitPosTable)
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.E, res.pos) then return end
     return true
 end
@@ -701,8 +701,9 @@ end
 function Syndra:LastHitUnkillableW1()
     if not ModernUOL then return end
     local range = myHero:AsAI():GetAttackRange() + myHero:GetBoundingRadius() + 55
-    local target = ModernUOL:GetSpellFarmTarget({ range = range, speed = math.huge, delay = 0.1, type = "AP" }, math.huge,
-            true)
+    local target = ModernUOL:GetSpellFarmTarget({ range = range, speed = math.huge, delay = 0.1, type = "AP" }, math
+        .huge,
+        true)
     if not target then return end
     local targetSdk = SDK.Types.AIBaseClient(target)
     if not SDK.Input:Cast(SDK.Enums.SpellSlot.W, targetSdk:GetPosition()) then return end
